@@ -16,7 +16,7 @@ import {
   type Turn,
 } from '../../src/engine';
 import type { AiRequest, AiResponse, Level } from './ai.worker';
-import { playerName, renderBoard, type Highlights } from './board';
+import { playerName, renderBoard, type Highlights, type Motion } from './board';
 import {
   EMPTY_SELECTION,
   autoComplete,
@@ -95,7 +95,7 @@ function lastMoveCells(): Set<number> {
   return cells;
 }
 
-function render(): void {
+function render(motion: Motion = {}): void {
   const state = current();
   const turns = legalTurns(state);
   const over = result(state) !== 'ongoing';
@@ -121,7 +121,7 @@ function render(): void {
   }
 
   const flipped = game.mode === 'ai' && game.human !== ORANGE;
-  renderBoard(svg, shown, hl, flipped, onCell);
+  renderBoard(svg, shown, hl, flipped, onCell, motion);
   statusEl.textContent = statusText(state, turns, base);
   statusEl.dataset.side = over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
   passBtn.hidden = !(humanToMove && isPassOnly(turns));
@@ -160,12 +160,15 @@ function renderMoves(): void {
   movesEl.scrollTop = movesEl.scrollHeight;
 }
 
-function commit(turn: Turn): void {
+/** Plays `turn`; `motion` is the part of it not yet shown on the board, to animate. */
+function commit(turn: Turn, motion: Motion = {}): void {
   history.push(play(current(), turn));
   log.push(turn);
   sel = EMPTY_SELECTION;
-  render();
-  maybeAiMove();
+  // Decide before rendering, so one render shows both the animation and the "thinking" state.
+  thinking = aiToMove();
+  render(motion);
+  if (thinking) requestAiMove();
 }
 
 function onCell(id: number): void {
@@ -179,8 +182,8 @@ function onCell(id: number): void {
     if (!move) return;
     sel = { base: move, topFrom: null };
     const auto = autoComplete(turns, sel);
-    if (auto) commit(auto);
-    else render();
+    if (auto) commit(auto, { base: auto.base });
+    else render({ base: move });
     return;
   }
 
@@ -189,7 +192,7 @@ function onCell(id: number): void {
     sel = { ...sel, topFrom: sel.topFrom === id ? null : id };
   } else if (sel.topFrom !== null) {
     const turn = completeWithTop(turns, sel, id);
-    if (turn) return commit(turn);
+    if (turn) return commit(turn, { top: turn.top });
     sel = { ...sel, topFrom: null };
   } else if (sel.base && id === sel.base.to) {
     sel = EMPTY_SELECTION;
@@ -197,11 +200,21 @@ function onCell(id: number): void {
   render();
 }
 
-function maybeAiMove(): void {
+function aiToMove(): boolean {
   const state = current();
-  if (game.mode !== 'ai' || result(state) !== 'ongoing' || state.toMove === game.human) return;
+  return game.mode === 'ai' && result(state) === 'ongoing' && state.toMove !== game.human;
+}
+
+function maybeAiMove(): void {
+  if (!aiToMove()) return;
   thinking = true;
   render();
+  requestAiMove();
+}
+
+/** Asks the worker for the computer's turn and plays it in two visible steps. */
+function requestAiMove(): void {
+  const state = current();
   const id = ++requestId;
   const started = performance.now();
   const req: AiRequest = { id, key: toKey(state), level: settings.level };
@@ -214,7 +227,7 @@ function maybeAiMove(): void {
       if (id !== requestId) return;
       thinking = false;
       aiBaseShown = null;
-      if (turn) commit(turn);
+      if (turn) commit(turn, turn.base && turn.top ? { top: turn.top } : { base: turn.base, top: turn.top });
       else render();
     };
     // Show the base step on its own first, then the top step, each after a pause.
@@ -223,7 +236,7 @@ function maybeAiMove(): void {
         if (id !== requestId) return;
         if (turn?.base && turn.top) {
           aiBaseShown = turn.base;
-          render();
+          render({ base: turn.base });
           setTimeout(finish, AI_STEP_DELAY_MS);
         } else {
           finish();

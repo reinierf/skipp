@@ -274,3 +274,7 @@ details a {
   opacity: 0.85;
   pointer-events: none;
 }
+
+.pieces {
+  pointer-events: none;
+}
