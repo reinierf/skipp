@@ -77,8 +77,12 @@ let requestId = 0;
 let thinking = false;
 /** The computer's base step while it is shown on its own, before the top step follows. */
 let aiBaseShown: BaseMove | null = null;
-/** Pause before each visible step of the computer's turn (search time counts toward the first). */
-const AI_STEP_DELAY_MS = 2000;
+/**
+ * Pause before each visible step of the computer's turn, drawn at random from this range so the
+ * computer feels less mechanical. Search time counts toward the first pause.
+ */
+const AI_STEP_DELAY_MS = [1200, 1700] as const;
+const aiStepDelay = () => AI_STEP_DELAY_MS[0] + Math.random() * (AI_STEP_DELAY_MS[1] - AI_STEP_DELAY_MS[0]);
 
 const current = () => history[history.length - 1]!;
 const isHumanTurn = (s: GameState) => game.mode === 'pvp' || s.toMove === game.human;
@@ -237,12 +241,12 @@ function requestAiMove(): void {
         if (turn?.base && turn.top) {
           aiBaseShown = turn.base;
           render({ base: turn.base });
-          setTimeout(finish, AI_STEP_DELAY_MS);
+          setTimeout(finish, aiStepDelay());
         } else {
           finish();
         }
       },
-      Math.max(0, AI_STEP_DELAY_MS - (performance.now() - started)),
+      Math.max(0, aiStepDelay() - (performance.now() - started)),
     );
   };
   worker.addEventListener('message', onReply);
