@@ -11,7 +11,7 @@ Rules engine and computer opponent for the board game [Skipp](https://www.skipp.
 
 | Path | Contents |
 |---|---|
-| `src/engine` | Board geometry, positions, legal complete turns, win/draw detection, notation |
+| `src/engine` | Board geometry, positions, legal complete turns, win/draw detection, notation; `fast.ts` has the allocation-free turn generation and make/unmake used by the search |
 | `src/search` | Evaluation, alpha-beta with iterative deepening and transposition table, weight presets |
 | `src/agents` | Random, greedy and search agents; `makeAgent(spec)` builds one from a string |
 | `src/analysis` | Analysis scripts that write their reports to `data/` |
@@ -28,6 +28,7 @@ npm run branching -- --games 2000                                  # data/branch
 npm run branching -- --policies ab4 --games 200 --opening-plies 2 --out data/branching-ab4
 npm run bench -- --positions data/branching-ab4/positions.json --out data/branching-ab4/search-bench.md
 npm run compare -- --depth 6                                       # search configurations side by side
+npm run profile                                                    # fixed search workload; node count must not change for pure speed-ups
 npm run tournament -- --agents random,greedy,ab2,ab4 --openings 20 # data/tournament.md
 ```
 

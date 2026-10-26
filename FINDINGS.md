@@ -10,7 +10,7 @@ differences come from 40–60 games per pairing, so treat differences under abou
 
 - The game is small for search: about 50 plies per game, and about 29 complete turns per position
   in strong play.
-- Alpha-beta reaches depth 6–9 in one second in most positions, and solves many endgames outright.
+- Alpha-beta reaches depth 7–10 in one second in most positions, and solves many endgames outright.
 - Playing strength still rises steeply with depth: about +200 to +500 Elo for every 2 extra plies,
   with no sign of levelling off at depth 8.
 - The evaluation is far from saturated. One weight change (base mobility) gained about 150 Elo at
@@ -45,20 +45,29 @@ roughly 3–10× in the middlegame. The game tree holds about 10^65 games in str
 
 ### How many complete turns can be searched within a practical time budget?
 
-Search speed is about 550k nodes per second. Completed depth (median, with minimum in brackets) on
-positions from strong play:
+Search speed is about 1.2M nodes per second. Completed depth (median, with minimum in brackets) on
+positions from strong play ([data/branching-ab4/search-bench.md](data/branching-ab4/search-bench.md);
+the benchmark stops at depth 14):
 
 | Game phase (plies) | turns per position | 100 ms | 1 s | 5 s |
 |---|---|---|---|---|
-| 0–9 | 47 | 5 (4) | 6 (6) | 7 (7) |
-| 10–19 | 40 | 5 (4) | 6 (6) | 7 (7) |
-| 20–29 | 25 | 6 (4) | 8 (6) | 9 (7) |
-| 30–39 | 16 | 7 (5) | 9 (7) | 12 (8) |
-| 40+ | 8 | 12 (6) | 12 (8) | 12 (9) |
+| 0–9 | 47 | 5 (4) | 7 (6) | 8 (7) |
+| 10–19 | 40 | 6 (5) | 7 (6) | 8 (7) |
+| 20–29 | 25 | 7 (5) | 8 (7) | 10 (8) |
+| 30–39 | 16 | 8 (6) | 10 (8) | 14 (9) |
+| 40+ | 8 | 14 (7) | 14 (9) | 14 (14) |
 
-A transposition table plus killer and history move ordering cut nodes at depth 6 to 27% of the
-basic alpha-beta search (3.3× faster). Leaner evaluation code and lazy move ordering added another
-1.4×. At depth 4, alpha-beta visits about 1–3% of the nodes full minimax would.
+How the search got there:
+
+| Change | Effect |
+|---|---|
+| Transposition table plus killer and history move ordering | depth-6 nodes cut to 27% of basic alpha-beta, 3.3× faster |
+| Leaner evaluation and lazy move ordering | 1.4× faster, same nodes |
+| Single-pass evaluation; integer-encoded turns with in-place make/unmake; incremental Zobrist hashing | 1.5× faster, no allocation in the search loop |
+| Principal-variation search | 24% fewer nodes |
+
+Together the last three rows roughly halved the time per search and added about one ply at
+every time budget. At depth 4, the search visits about 1% of the nodes full minimax would.
 
 ### How important are base movements as enablers of future top movement?
 
@@ -120,9 +129,9 @@ gained 150 Elo, so systematic tuning is likely to find more.
 2. **Evaluation tuning.** Automate weight tuning with self-play (SPSA or simple local search using
    the tournament runner), then try new features: blocked or jammed bases, sprint-route
    accessibility to goal cells, and contested goal cells.
-3. **Search speed.** Make/unmake moves instead of copying positions, and generate turns without
-   allocating. This could give about 1.5–2× more speed, worth about half a ply. Principal-variation
-   search and aspiration windows are further small gains.
+3. **Search speed.** Make/unmake, allocation-free move generation and PVS are done. Remaining
+   options are aspiration windows (small, exact) and late-move reductions. Late-move reductions can
+   change move choices, so check them in a tournament before adopting.
 
 ## Reproducing
 
