@@ -2,8 +2,7 @@
 // Usage: npx tsx src/analysis/tournament.ts [--agents random,greedy,ab2,ab4] [--openings N]
 //        [--opening-plies K] [--workers W] [--seed S] [--out FILE]
 //
-// Agent specs: random | greedy | ab<depth> | t<ms> (iterative deepening on a time budget),
-// optionally followed by :<weights preset> from WEIGHT_PRESETS, e.g. ab4:noMobility.
+// Agent specs: see makeAgent in src/agents/factory.ts.
 // Every pairing plays each opening twice with colours swapped. Openings are K random plies
 // from the start position, so deterministic agents still play varied games.
 
@@ -11,11 +10,8 @@ import { fork } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { searchAgent } from '../agents/search';
-import { greedyAgent, randomAgent, type Agent } from '../agents/simple';
+import { makeAgent } from '../agents/factory';
 import { fromKey, legalTurns, play, result, startState, toKey, type GameState } from '../engine';
-import { TranspositionTable } from '../search/tt';
-import { WEIGHT_PRESETS } from '../search/presets';
 import { mulberry32, pick } from '../util/rng';
 
 const args = new Map<string, string>();
@@ -37,21 +33,6 @@ interface GameResult {
   /** Total thinking time and number of decisions per side. */
   ms: [number, number];
   moves: [number, number];
-}
-
-function makeAgent(spec: string, seed: number): Agent {
-  const [kind, preset] = spec.split(':');
-  const weights = preset ? WEIGHT_PRESETS[preset] : undefined;
-  if (preset && !weights) throw new Error(`Unknown weights preset: ${preset}`);
-  const rand = mulberry32(seed);
-  if (kind === 'random') return randomAgent(rand);
-  if (kind === 'greedy') return greedyAgent(rand);
-  const tt = new TranspositionTable();
-  let m = /^ab(\d+)$/.exec(kind!);
-  if (m) return searchAgent({ maxDepth: Number(m[1]), tt, weights });
-  m = /^t(\d+)$/.exec(kind!);
-  if (m) return searchAgent({ maxDepth: 64, timeMs: Number(m[1]), tt, weights });
-  throw new Error(`Unknown agent: ${spec}`);
 }
 
 function playGame(job: Job): GameResult {

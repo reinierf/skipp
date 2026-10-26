@@ -1,4 +1,4 @@
-import { BLUE, CELLS, IS_GOAL, MAX_Y, NUM_CELLS, ORANGE, baseMoves, opponent, topMoves, type GameState, type Player } from '../engine';
+import { BLUE, CELLS, MAX_Y, NUM_CELLS, ORANGE, countBaseMoves, countTopMoves, opponent, type GameState, type Player } from '../engine';
 
 export interface Weights {
   /** Per top on the board. */
@@ -31,6 +31,8 @@ export const PROGRESS: readonly Int8Array[] = [ORANGE, BLUE].map((p) => {
   return arr;
 });
 
+const topCounts = new Int32Array(2);
+
 function side(state: GameState, p: Player, w: Weights): number {
   let score = 0;
   const progress = PROGRESS[p]!;
@@ -39,11 +41,9 @@ function side(state: GameState, p: Player, w: Weights): number {
     const g = progress[id]!;
     score += w.top + (w.advance * g * g) / MAX_Y;
   }
-  const tops = topMoves(state, p);
-  let threats = 0;
-  for (const m of tops) if (IS_GOAL[p]![m.to]) threats++;
-  score += threats * (w.threat + (p === state.toMove ? w.threatToMove : 0));
-  score += tops.length * w.topMobility + baseMoves(state, p).length * w.baseMobility;
+  countTopMoves(state, p, topCounts);
+  score += topCounts[1]! * (w.threat + (p === state.toMove ? w.threatToMove : 0));
+  score += topCounts[0]! * w.topMobility + countBaseMoves(state, p) * w.baseMobility;
   return score;
 }
 

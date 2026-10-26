@@ -81,6 +81,27 @@ export const RAYS: readonly (readonly (readonly number[])[])[][] = [ORANGE, BLUE
   }),
 );
 
+/** Longest possible ray, plus one slot for the -1 terminator. */
+export const RAY_STRIDE = 8;
+
+/**
+ * Flat copy of RAYS for hot loops: the ray in direction d (0 or 1) from `cell` starts at
+ * ((cell * 2 + d) * RAY_STRIDE) and is terminated by -1. Missing rays are just a -1.
+ */
+export const RAYS_FLAT: readonly Int8Array[] = [ORANGE, BLUE].map((p) => {
+  const arr = new Int8Array(NUM_CELLS * 2 * RAY_STRIDE).fill(-1);
+  for (const c of CELLS) {
+    for (const [d, dc] of [-1, 1].entries()) {
+      for (let k = 1; k < RAY_STRIDE; k++) {
+        const id = cellAt(c.col + dc * k, c.y + DY[p]! * k);
+        if (id < 0) break;
+        arr[(c.id * 2 + d) * RAY_STRIDE + k - 1] = id;
+      }
+    }
+  }
+  return arr;
+});
+
 /** IS_GOAL[p][cell]: true if a player-p top landing on this cell wins. */
 export const IS_GOAL: readonly Uint8Array[] = [ORANGE, BLUE].map((p) => {
   const arr = new Uint8Array(NUM_CELLS);

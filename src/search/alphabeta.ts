@@ -72,6 +72,23 @@ const topPart = (t: Turn) => (t.top ? t.top.from * NUM_CELLS + t.top.to : PART -
 const turnCode = (t: Turn) => basePart(t) * PART + topPart(t);
 const isQuiet = (t: Turn) => !t.top || t.top.captured === NONE;
 
+/**
+ * Returns the index of the highest key and marks it taken. Picking lazily is cheaper than
+ * sorting because most nodes cut off after the first few turns. Ties go to the lower index.
+ */
+function takeBest(keys: Float64Array): number {
+  let best = -1;
+  let bestKey = -Infinity;
+  for (let i = 0; i < keys.length; i++) {
+    if (keys[i]! > bestKey) {
+      bestKey = keys[i]!;
+      best = i;
+    }
+  }
+  keys[best] = -Infinity;
+  return best;
+}
+
 // Scores in the TT are stored relative to the node, so mate distances stay valid
 // when the same position is reached at a different ply.
 const toTT = (score: number, ply: number) =>
@@ -95,8 +112,8 @@ class Searcher {
     this.deadline = timeMs === undefined ? Infinity : performance.now() + timeMs;
   }
 
-  /** Indices of `turns` in search order; the index `first` (if >= 0) leads. */
-  private order(turns: Turn[], p: Player, ply: number, first: number): number[] {
+  /** Ordering keys for `turns` (higher is searched first); the index `first` (if >= 0) leads. */
+  private orderKeys(turns: Turn[], p: Player, ply: number, first: number): Float64Array {
     const keys = new Float64Array(turns.length);
     for (let i = 0; i < turns.length; i++) {
       const t = turns[i]!;
@@ -111,7 +128,7 @@ class Searcher {
       }
       keys[i] = k;
     }
-    return [...turns.keys()].sort((a, b) => keys[b]! - keys[a]!);
+    return keys;
   }
 
   private recordCutoff(t: Turn, depth: number, ply: number): void {
@@ -159,7 +176,9 @@ class Searcher {
 
     let best = -Infinity;
     let bestIndex = -1;
-    for (const i of this.order(turns, p, ply, ttMove < turns.length ? ttMove : -1)) {
+    const keys = this.orderKeys(turns, p, ply, ttMove < turns.length ? ttMove : -1);
+    for (let n = 0; n < turns.length; n++) {
+      const i = takeBest(keys);
       const t = turns[i]!;
       const score = -this.negamax(play(state, t), depth - 1, -beta, -alpha, ply + 1);
       if (score > best) {
@@ -183,7 +202,9 @@ class Searcher {
     this.nodes++;
     let alpha = -Infinity;
     let best = -1;
-    for (const i of this.order(turns, state.toMove, 0, first)) {
+    const keys = this.orderKeys(turns, state.toMove, 0, first);
+    for (let n = 0; n < turns.length; n++) {
+      const i = takeBest(keys);
       const score = -this.negamax(play(state, turns[i]!), depth - 1, -Infinity, -alpha, 1);
       if (score > alpha || best < 0) {
         alpha = score;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NONE, NUM_CELLS, legalTurns, play, result, startState, topCounts, type GameState } from '../src/engine';
+import { BLUE, IS_GOAL, NONE, NUM_CELLS, ORANGE, baseMoves, countBaseMoves, countTopMoves, legalTurns, play, result, startState, topCounts, topMoves, type GameState } from '../src/engine';
 import { mulberry32 } from '../src/util/rng';
 
 function checkInvariants(s: GameState): void {
@@ -32,5 +32,26 @@ describe('random self-play', () => {
       outcomes[result(s)] = (outcomes[result(s)] ?? 0) + 1;
     }
     expect(outcomes.orange! + outcomes.blue!).toBeGreaterThan(0);
+  });
+});
+
+describe('non-allocating move counters', () => {
+  it('agree with the full move generators on random positions', () => {
+    const rand = mulberry32(99);
+    const out = new Int32Array(2);
+    for (let game = 0; game < 50; game++) {
+      let s = startState();
+      while (result(s) === 'ongoing') {
+        for (const p of [ORANGE, BLUE] as const) {
+          const tops = topMoves(s, p);
+          countTopMoves(s, p, out);
+          expect(out[0]).toBe(tops.length);
+          expect(out[1]).toBe(tops.filter((m) => IS_GOAL[p]![m.to]).length);
+          expect(countBaseMoves(s, p)).toBe(baseMoves(s, p).length);
+        }
+        const turns = legalTurns(s);
+        s = play(s, turns[Math.floor(rand() * turns.length)]!);
+      }
+    }
   });
 });

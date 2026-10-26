@@ -1,0 +1,58 @@
+[
+  {
+    "policy": "ab4",
+    "games": 200,
+    "positions": 9790,
+    "completeTurns": {
+      "n": 9790,
+      "mean": 29.7,
+      "min": 1,
+      "p10": 5,
+      "median": 28,
+      "p90": 55,
+      "max": 110
+    },
+    "geometricMean": 21.5,
+    "baseMoves": {
+      "n": 9790,
+      "mean": 4.1,
+      "min": 0,
+      "p10": 1,
+      "median": 4,
+      "p90": 7,
+      "max": 9
+    },
+    "topMoves": {
+      "n": 9790,
+      "mean": 7.1,
+      "min": 0,
+      "p10": 3,
+      "median": 7,
+      "p90": 11,
+      "max": 17
+    },
+    "gameLength": {
+      "n": 200,
+      "mean": 49,
+      "min": 30,
+      "p10": 39,
+      "median": 49,
+      "p90": 59,
+      "max": 75
+    },
+    "log10Tree": {
+      "n": 200,
+      "mean": 65.3,
+      "min": 42.62694130324118,
+      "p10": 54.99471631688391,
+      "median": 64.80413353842184,
+      "p90": 76.0132239561014,
+      "max": 84.14857096866452
+    },
+    "outcomes": {
+      "orange": 106,
+      "blue": 90,
+      "draw": 4
+    }
+  }
+]

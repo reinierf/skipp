@@ -1,4 +1,4 @@
-import { FORWARD, IS_GOAL, RAYS, cellName, opponent, type Player } from './board';
+import { FORWARD, IS_GOAL, NUM_CELLS, RAYS, RAYS_FLAT, RAY_STRIDE, cellName, opponent, type Player } from './board';
 import { GameState, NONE } from './state';
 
 export interface BaseMove {
@@ -59,6 +59,57 @@ export function topMoves(state: GameState, p: Player = state.toMove): TopMove[] 
     }
   }
   return moves;
+}
+
+/** Number of base moves for p, without allocating. */
+export function countBaseMoves(state: GameState, p: Player): number {
+  let n = 0;
+  const fwd = FORWARD[p]!;
+  for (let from = 0; from < state.base.length; from++) {
+    if (state.base[from] !== p || state.top[from] !== NONE) continue;
+    const to = fwd[from]!;
+    if (to < 0) continue;
+    const there = state.base[to]!;
+    if (there === NONE || (there !== p && state.top[to] === NONE)) n++;
+  }
+  return n;
+}
+
+/**
+ * Counts top moves for p without allocating. Writes the total to out[0] and the number
+ * landing on a goal cell to out[1].
+ */
+export function countTopMoves(state: GameState, p: Player, out: Int32Array): void {
+  let n = 0;
+  let goals = 0;
+  const rays = RAYS_FLAT[p]!;
+  const goal = IS_GOAL[p]!;
+  const base = state.base;
+  const top = state.top;
+  for (let from = 0; from < NUM_CELLS; from++) {
+    if (top[from] !== p) continue;
+    for (let start = from * 2 * RAY_STRIDE; start < (from * 2 + 2) * RAY_STRIDE; start += RAY_STRIDE) {
+      const first = rays[start]!;
+      if (first < 0 || base[first] === NONE) continue;
+      const firstTop = top[first]!;
+      if (firstTop === NONE) {
+        for (let k = start; ; k++) {
+          const to = rays[k]!;
+          if (to < 0 || base[to] === NONE || top[to] !== NONE) break;
+          n++;
+          goals += goal[to]!;
+        }
+      } else if (firstTop !== p) {
+        const to = rays[start + 1]!;
+        if (to >= 0 && base[to] !== NONE && top[to] === NONE) {
+          n++;
+          goals += goal[to]!;
+        }
+      }
+    }
+  }
+  out[0] = n;
+  out[1] = goals;
 }
 
 function applyBase(state: GameState, m: BaseMove): void {
