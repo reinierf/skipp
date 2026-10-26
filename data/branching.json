@@ -1,0 +1,114 @@
+[
+  {
+    "policy": "random",
+    "games": 2000,
+    "positions": 100472,
+    "completeTurns": {
+      "n": 100472,
+      "mean": 18.3,
+      "min": 1,
+      "p10": 3,
+      "median": 13,
+      "p90": 43,
+      "max": 84
+    },
+    "geometricMean": 11.3,
+    "baseMoves": {
+      "n": 100472,
+      "mean": 3.6,
+      "min": 0,
+      "p10": 1,
+      "median": 4,
+      "p90": 6,
+      "max": 9
+    },
+    "topMoves": {
+      "n": 100472,
+      "mean": 4.3,
+      "min": 0,
+      "p10": 1,
+      "median": 4,
+      "p90": 9,
+      "max": 15
+    },
+    "gameLength": {
+      "n": 2000,
+      "mean": 50.2,
+      "min": 17,
+      "p10": 33,
+      "median": 51,
+      "p90": 66,
+      "max": 90
+    },
+    "log10Tree": {
+      "n": 2000,
+      "mean": 53,
+      "min": 23.281989081148957,
+      "p10": 38.11959672177385,
+      "median": 53.23506194260547,
+      "p90": 67.10100450257188,
+      "max": 90.93382750295522
+    },
+    "outcomes": {
+      "orange": 1023,
+      "blue": 902,
+      "draw": 75
+    }
+  },
+  {
+    "policy": "greedy",
+    "games": 2000,
+    "positions": 103320,
+    "completeTurns": {
+      "n": 103320,
+      "mean": 18.9,
+      "min": 1,
+      "p10": 3,
+      "median": 14,
+      "p90": 44,
+      "max": 109
+    },
+    "geometricMean": 12,
+    "baseMoves": {
+      "n": 103320,
+      "mean": 3.9,
+      "min": 0,
+      "p10": 1,
+      "median": 4,
+      "p90": 6,
+      "max": 10
+    },
+    "topMoves": {
+      "n": 103320,
+      "mean": 4.2,
+      "min": 0,
+      "p10": 1,
+      "median": 4,
+      "p90": 9,
+      "max": 17
+    },
+    "gameLength": {
+      "n": 2000,
+      "mean": 51.7,
+      "min": 15,
+      "p10": 35,
+      "median": 52,
+      "p90": 68,
+      "max": 91
+    },
+    "log10Tree": {
+      "n": 2000,
+      "mean": 55.7,
+      "min": 21.89221482403056,
+      "p10": 40.51184578602341,
+      "median": 55.946459602312295,
+      "p90": 70.37044899079899,
+      "max": 88.42076566126032
+    },
+    "outcomes": {
+      "orange": 949,
+      "blue": 988,
+      "draw": 63
+    }
+  }
+]

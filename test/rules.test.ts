@@ -16,6 +16,8 @@ import {
   startState,
   stateFromCells,
   topMoves,
+  toKey,
+  fromKey,
   turnToString,
   type GameState,
 } from '../src/engine';
@@ -181,5 +183,14 @@ describe('game result', () => {
   it('is a draw when neither player can move', () => {
     const s = stateFromCells({ c2: 'O', d3: 'B', e3: 'B' });
     expect(result(s)).toBe('draw');
+  });
+});
+
+describe('position keys', () => {
+  it('round-trip, including mixed-colour stacks and side to move', () => {
+    const s = stateFromCells({ c2: 'oB', d3: 'bO', e3: 'b', a1: 'O' }, BLUE);
+    expect(toKey(fromKey(toKey(s)))).toBe(toKey(s));
+    expect(renderDiagram(fromKey(toKey(s)))).toBe(renderDiagram(s));
+    expect(fromKey(toKey(startState())).toMove).toBe(ORANGE);
   });
 });

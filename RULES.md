@@ -73,8 +73,9 @@ A turn has two steps, in this order:
 You must make both steps if you can. If no base move is legal, you only make a top step;
 if no top move is legal, you only make a base step. If neither is possible, you pass.
 
-**[INTERPRETATION]** The base step is mandatory whenever any base can move, even if every
-possible base move leaves no top move. A top-only turn happens only when no base can move.
+The base step is mandatory whenever any base can move, even if every possible base move
+leaves no top move. You cannot skip the base step to keep a top move that a base move would
+block. A top-only turn happens only when no base can move.
 
 ### Base step
 

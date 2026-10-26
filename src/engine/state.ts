@@ -1,4 +1,4 @@
-import { BLUE, CELLS, COLUMN_LETTERS, MAX_Y, NUM_CELLS, ORANGE, cellAt, cellByName, type Player } from './board';
+import { BLUE, CELLS, COLUMN_LETTERS, MAX_Y, NUM_CELLS, ORANGE, IS_GOAL, cellAt, cellByName, type Player } from './board';
 
 export const NONE = -1;
 
@@ -129,6 +129,36 @@ export function renderDiagram(state: GameState): string {
     lines.push(line.trimEnd());
   }
   return lines.join('\n');
+}
+
+// Compact encoding: one character per cell in cell-id order, a space, then the side to move
+// ('o' or 'b'). Cell characters: '.' no base, 'o' / 'b' empty base, 'O' / 'B' top on a base
+// of its own colour, 'x' blue top on an orange base, 'y' orange top on a blue base.
+const KEY_CHARS: Record<string, string> = { '.': '.', o: 'o', b: 'b', O: 'O', B: 'B', oB: 'x', bO: 'y' };
+const KEY_TOKENS = Object.fromEntries(Object.entries(KEY_CHARS).map(([tok, ch]) => [ch, tok]));
+
+export function toKey(state: GameState): string {
+  let key = '';
+  for (let id = 0; id < NUM_CELLS; id++) key += KEY_CHARS[token(state, id)];
+  return `${key} ${state.toMove === ORANGE ? 'o' : 'b'}`;
+}
+
+export function fromKey(key: string): GameState {
+  const [cells, side] = key.split(' ');
+  if (cells?.length !== NUM_CELLS || (side !== 'o' && side !== 'b')) throw new Error(`Bad key: ${key}`);
+  const base = new Int8Array(NUM_CELLS);
+  const top = new Int8Array(NUM_CELLS);
+  for (let id = 0; id < NUM_CELLS; id++) {
+    const entry = TOKENS[KEY_TOKENS[cells[id]!] ?? ''];
+    if (!entry) throw new Error(`Bad key character: ${cells[id]}`);
+    [base[id], top[id]] = entry;
+  }
+  const state = new GameState(base, top, side === 'o' ? ORANGE : BLUE);
+  for (let id = 0; id < NUM_CELLS; id++) {
+    const t = top[id]!;
+    if (t !== NONE && IS_GOAL[t]![id]) state.winner = t as Player;
+  }
+  return state;
 }
 
 /** Number of tops each player has on the board. */
