@@ -21,7 +21,8 @@ export const DEFAULT_WEIGHTS: Weights = {
   threat: 60,
   threatToMove: 200,
   topMobility: 4,
-  baseMobility: 2,
+  // Raised from 2 (v1): +95 Elo at depth 4, +154 at depth 6 (data/tournament-basemob*.md).
+  baseMobility: 12,
 };
 
 /** PROGRESS[p][cell]: half-rows a player-p top on this cell has advanced from p's back row. */
