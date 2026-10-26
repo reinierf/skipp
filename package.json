@@ -7,7 +7,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "branching": "tsx src/analysis/branching.ts"
+    "branching": "tsx src/analysis/branching.ts",
+    "bench": "tsx src/analysis/search-bench.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
