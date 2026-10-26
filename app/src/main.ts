@@ -11,6 +11,7 @@ import {
   toKey,
   turnToString,
   type GameState,
+  type BaseMove,
   type Player,
   type Turn,
 } from '../../src/engine';
@@ -74,12 +75,16 @@ let sel: Selection = EMPTY_SELECTION;
 const worker = new Worker(new URL('./ai.worker.ts', import.meta.url), { type: 'module' });
 let requestId = 0;
 let thinking = false;
-const MIN_AI_DELAY_MS = 350;
+/** The computer's base step while it is shown on its own, before the top step follows. */
+let aiBaseShown: BaseMove | null = null;
+/** Pause before each visible step of the computer's turn (search time counts toward the first). */
+const AI_STEP_DELAY_MS = 2000;
 
 const current = () => history[history.length - 1]!;
 const isHumanTurn = (s: GameState) => game.mode === 'pvp' || s.toMove === game.human;
 
 function lastMoveCells(): Set<number> {
+  if (aiBaseShown) return new Set([aiBaseShown.from, aiBaseShown.to]);
   const t = log[log.length - 1];
   const cells = new Set<number>();
   if (t?.base) cells.add(t.base.from).add(t.base.to);
@@ -98,7 +103,7 @@ function render(): void {
   const base = humanToMove ? effectiveBase(turns, sel) : undefined;
 
   const hl: Highlights = { clickable: new Set(), selected: null, targets: new Set(), lastMove: lastMoveCells() };
-  let shown = state;
+  let shown = aiBaseShown ? play(state, { base: aiBaseShown, top: null }) : state;
   if (humanToMove && !isPassOnly(turns)) {
     if (base === undefined) {
       for (const from of baseOptions(turns).keys()) hl.clickable.add(from);
@@ -134,6 +139,7 @@ function statusText(state: GameState, turns: Turn[], base: ReturnType<typeof eff
     return `${playerName(winner)} wins!`;
   }
   const who = playerName(state.toMove);
+  if (aiBaseShown) return `Computer (${who}) moved a base and is now moving a top…`;
   if (thinking) return `Computer (${who}) is thinking…`;
   const you = game.mode === 'ai' ? 'Your move' : `${who} to move`;
   if (isPassOnly(turns)) return `${you}: nothing can move, so you must pass.`;
@@ -204,14 +210,26 @@ function maybeAiMove(): void {
     if (e.data.id !== id) return;
     worker.removeEventListener('message', onReply);
     const turn = legalTurns(state).find((t) => encodeTurn(t) === e.data.code);
+    const finish = () => {
+      if (id !== requestId) return;
+      thinking = false;
+      aiBaseShown = null;
+      if (turn) commit(turn);
+      else render();
+    };
+    // Show the base step on its own first, then the top step, each after a pause.
     setTimeout(
       () => {
         if (id !== requestId) return;
-        thinking = false;
-        if (turn) commit(turn);
-        else render();
+        if (turn?.base && turn.top) {
+          aiBaseShown = turn.base;
+          render();
+          setTimeout(finish, AI_STEP_DELAY_MS);
+        } else {
+          finish();
+        }
       },
-      Math.max(0, MIN_AI_DELAY_MS - (performance.now() - started)),
+      Math.max(0, AI_STEP_DELAY_MS - (performance.now() - started)),
     );
   };
   worker.addEventListener('message', onReply);
@@ -220,6 +238,7 @@ function maybeAiMove(): void {
 function cancelAi(): void {
   requestId++;
   thinking = false;
+  aiBaseShown = null;
 }
 
 function newGame(): void {
