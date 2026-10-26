@@ -8,7 +8,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "branching": "tsx src/analysis/branching.ts",
-    "bench": "tsx src/analysis/search-bench.ts"
+    "bench": "tsx src/analysis/search-bench.ts",
+    "compare": "tsx src/analysis/search-compare.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

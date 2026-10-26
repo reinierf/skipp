@@ -1,6 +1,7 @@
 import {
   IS_GOAL,
   NONE,
+  NUM_CELLS,
   PASS,
   canMove,
   legalTurns,
@@ -11,6 +12,7 @@ import {
   type Turn,
 } from '../engine';
 import { DEFAULT_WEIGHTS, PROGRESS, evaluate, type Weights } from './evaluate';
+import { EXACT, LOWER, TranspositionTable, UPPER, hashState } from './tt';
 
 /** Score of a win at the root. A win found `n` plies deep scores `WIN - n`. */
 export const WIN = 1_000_000;
@@ -22,6 +24,13 @@ export interface SearchOptions {
   /** Stop starting or continuing iterations after this many milliseconds. */
   timeMs?: number;
   weights?: Weights;
+  /**
+   * Transposition table to use (and keep between searches), or false to disable.
+   * Defaults to a fresh table per search.
+   */
+  tt?: TranspositionTable | false;
+  /** Killer-move and history ordering. Default true. */
+  heuristics?: boolean;
 }
 
 export interface DepthReport {
@@ -46,6 +55,9 @@ export interface SearchResult {
 
 class Aborted extends Error {}
 
+const MAX_PLY = 128;
+const PART = NUM_CELLS * NUM_CELLS + 1;
+
 /** Cheap move-ordering key: wins, then captures, then top advancement. */
 function orderKey(turn: Turn, p: Player): number {
   const t = turn.top;
@@ -55,21 +67,62 @@ function orderKey(turn: Turn, p: Player): number {
   return (t.captured !== NONE ? 1000 : 0) + PROGRESS[p]![t.to]! * 4 + gain;
 }
 
-function ordered(turns: Turn[], p: Player, first?: Turn): Turn[] {
-  const keyed = turns.map((t) => ({ t, k: t === first ? Infinity : orderKey(t, p) }));
-  keyed.sort((a, b) => b.k - a.k);
-  return keyed.map((x) => x.t);
-}
+const basePart = (t: Turn) => (t.base ? t.base.from * NUM_CELLS + t.base.to : PART - 1);
+const topPart = (t: Turn) => (t.top ? t.top.from * NUM_CELLS + t.top.to : PART - 1);
+const turnCode = (t: Turn) => basePart(t) * PART + topPart(t);
+const isQuiet = (t: Turn) => !t.top || t.top.captured === NONE;
+
+// Scores in the TT are stored relative to the node, so mate distances stay valid
+// when the same position is reached at a different ply.
+const toTT = (score: number, ply: number) =>
+  score >= MATE_BOUND ? score + ply : score <= -MATE_BOUND ? score - ply : score;
+const fromTT = (score: number, ply: number) =>
+  score >= MATE_BOUND ? score - ply : score <= -MATE_BOUND ? score + ply : score;
 
 class Searcher {
   nodes = 0;
   private readonly deadline: number;
+  private readonly killers = new Int32Array(MAX_PLY * 2).fill(-1);
+  private readonly baseHistory = new Float64Array(PART);
+  private readonly topHistory = new Float64Array(PART);
 
   constructor(
     private readonly weights: Weights,
     timeMs: number | undefined,
+    private readonly tt: TranspositionTable | null,
+    private readonly heuristics: boolean,
   ) {
     this.deadline = timeMs === undefined ? Infinity : performance.now() + timeMs;
+  }
+
+  /** Indices of `turns` in search order; the index `first` (if >= 0) leads. */
+  private order(turns: Turn[], p: Player, ply: number, first: number): number[] {
+    const keys = new Float64Array(turns.length);
+    for (let i = 0; i < turns.length; i++) {
+      const t = turns[i]!;
+      let k = orderKey(t, p);
+      if (i === first) k = 1e12;
+      else if (!isQuiet(t)) k += 1e10;
+      else if (this.heuristics) {
+        const code = turnCode(t);
+        if (code === this.killers[ply * 2]) k = 1e9;
+        else if (code === this.killers[ply * 2 + 1]) k = 1e9 - 1;
+        else k += this.baseHistory[basePart(t)]! + this.topHistory[topPart(t)]!;
+      }
+      keys[i] = k;
+    }
+    return [...turns.keys()].sort((a, b) => keys[b]! - keys[a]!);
+  }
+
+  private recordCutoff(t: Turn, depth: number, ply: number): void {
+    if (!this.heuristics || !isQuiet(t)) return;
+    const code = turnCode(t);
+    if (this.killers[ply * 2] !== code) {
+      this.killers[ply * 2 + 1] = this.killers[ply * 2]!;
+      this.killers[ply * 2] = code;
+    }
+    this.baseHistory[basePart(t)]! += depth * depth;
+    this.topHistory[topPart(t)]! += depth * depth;
   }
 
   /** Negamax with alpha-beta. Returns the score from the side to move's point of view. */
@@ -80,32 +133,61 @@ class Searcher {
     if (state.winner !== NONE) return -(WIN - ply);
     if (depth === 0) return evaluate(state, this.weights);
 
+    const alphaOrig = alpha;
+    let ttMove = -1;
+    let h1 = 0;
+    let h2 = 0;
+    if (this.tt) {
+      [h1, h2] = hashState(state);
+      const e = this.tt.get(h1, h2);
+      if (e) {
+        ttMove = e.move;
+        if (e.depth >= depth) {
+          const score = fromTT(e.score, ply);
+          if (e.bound === EXACT) return score;
+          if (e.bound === LOWER && score > alpha) alpha = score;
+          else if (e.bound === UPPER && score < beta) beta = score;
+          if (alpha >= beta) return score;
+        }
+      }
+    }
+
     const p = state.toMove;
     const turns = legalTurns(state);
     if (turns.length === 1 && turns[0] === PASS && !canMove(state, opponent(p))) return 0;
     for (const t of turns) if (t.top && IS_GOAL[p]![t.top.to]) return WIN - ply - 1;
 
     let best = -Infinity;
-    for (const t of ordered(turns, p)) {
+    let bestIndex = -1;
+    for (const i of this.order(turns, p, ply, ttMove < turns.length ? ttMove : -1)) {
+      const t = turns[i]!;
       const score = -this.negamax(play(state, t), depth - 1, -beta, -alpha, ply + 1);
-      if (score > best) best = score;
+      if (score > best) {
+        best = score;
+        bestIndex = i;
+      }
       if (score > alpha) alpha = score;
-      if (alpha >= beta) break;
+      if (alpha >= beta) {
+        this.recordCutoff(t, depth, ply);
+        break;
+      }
+    }
+    if (this.tt) {
+      const bound = best <= alphaOrig ? UPPER : best >= beta ? LOWER : EXACT;
+      this.tt.set(h1, h2, depth, toTT(best, ply), bound, bestIndex);
     }
     return best;
   }
 
-  root(state: GameState, depth: number, first?: Turn): { best: Turn; score: number } {
+  root(state: GameState, turns: Turn[], depth: number, first: number): { best: number; score: number } {
     this.nodes++;
-    const p = state.toMove;
-    const turns = ordered(legalTurns(state), p, first);
     let alpha = -Infinity;
-    let best = turns[0]!;
-    for (const t of turns) {
-      const score = -this.negamax(play(state, t), depth - 1, -Infinity, -alpha, 1);
-      if (score > alpha) {
+    let best = -1;
+    for (const i of this.order(turns, state.toMove, 0, first)) {
+      const score = -this.negamax(play(state, turns[i]!), depth - 1, -Infinity, -alpha, 1);
+      if (score > alpha || best < 0) {
         alpha = score;
-        best = t;
+        best = i;
       }
     }
     return { best, score: alpha };
@@ -115,17 +197,27 @@ class Searcher {
 /** Iterative-deepening alpha-beta over complete turns. */
 export function search(state: GameState, opts: SearchOptions): SearchResult {
   const start = performance.now();
-  const s = new Searcher(opts.weights ?? DEFAULT_WEIGHTS, opts.timeMs);
+  const tt = opts.tt === false ? null : (opts.tt ?? new TranspositionTable());
+  const s = new Searcher(opts.weights ?? DEFAULT_WEIGHTS, opts.timeMs, tt, opts.heuristics ?? true);
   const result: SearchResult = { best: null, score: 0, depth: 0, nodes: 0, timeMs: 0, iterations: [] };
-  if (state.winner !== NONE || legalTurns(state).length === 0) return result;
+  const turns = legalTurns(state);
+  if (turns.length === 0) return result;
 
+  let bestIndex = -1;
   for (let depth = 1; depth <= opts.maxDepth; depth++) {
     const iterStart = performance.now();
     const nodesBefore = s.nodes;
     try {
-      const { best, score } = s.root(state, depth, result.best ?? undefined);
-      Object.assign(result, { best, score, depth });
-      result.iterations.push({ depth, score, best, nodes: s.nodes - nodesBefore, timeMs: performance.now() - iterStart });
+      const { best, score } = s.root(state, turns, depth, bestIndex);
+      bestIndex = best;
+      Object.assign(result, { best: turns[best]!, score, depth });
+      result.iterations.push({
+        depth,
+        score,
+        best: turns[best]!,
+        nodes: s.nodes - nodesBefore,
+        timeMs: performance.now() - iterStart,
+      });
     } catch (e) {
       if (!(e instanceof Aborted)) throw e;
       break;

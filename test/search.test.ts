@@ -10,6 +10,7 @@ import {
   type GameState,
 } from '../src/engine';
 import { WIN, isMateScore, minimax, perft, search } from '../src/search/alphabeta';
+import { TranspositionTable } from '../src/search/tt';
 import { mulberry32, pick } from '../src/util/rng';
 
 const best = (s: GameState, maxDepth: number) => {
@@ -66,9 +67,22 @@ describe('alpha-beta correctness', () => {
     return out.slice(0, n);
   }
 
-  it('matches plain minimax at depths 1-3', () => {
+  it.each([
+    ['plain', { tt: false, heuristics: false }],
+    ['killers and history', { tt: false, heuristics: true }],
+    ['transposition table', { heuristics: true }],
+  ] as const)('matches plain minimax at depths 1-3 (%s)', (_name, opts) => {
     for (const s of samplePositions(20)) {
-      for (let d = 1; d <= 3; d++) expect(search(s, { maxDepth: d }).score).toBe(minimax(s, d));
+      for (let d = 1; d <= 3; d++) expect(search(s, { maxDepth: d, ...opts }).score).toBe(minimax(s, d));
+    }
+  });
+
+  it('gives the same result when a transposition table is reused between searches', () => {
+    const tt = new TranspositionTable();
+    for (const s of samplePositions(10)) {
+      const fresh = search(s, { maxDepth: 4 });
+      const reused = search(s, { maxDepth: 4, tt });
+      expect(reused.score).toBe(fresh.score);
     }
   });
 
