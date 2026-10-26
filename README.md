@@ -1,6 +1,6 @@
 # Skipp
 
-Rules engine and computer opponent for the board game [Skipp](https://www.skipp.game/speluitleg.html)
+Rules engine and computer opponent for the board game [Skipp](https://www.skipp.game/skipp-game-rules.html)
 (Original board), written in TypeScript so it can later run in a web game.
 
 - [RULES.md](RULES.md) — the rules specification the engine implements.

@@ -1,6 +1,6 @@
 # Skipp — rules specification (draft)
 
-Source: https://www.skipp.game/speluitleg.html (Dutch), the Original board start diagram,
+Source: https://www.skipp.game/speluitleg.html (Dutch; English version: https://www.skipp.game/skipp-game-rules.html), the Original board start diagram,
 and clarifications from the game owner (2026-10-26).
 
 ## Board geometry (Original)
