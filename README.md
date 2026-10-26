@@ -7,10 +7,22 @@ Rules engine and computer opponent for the board game [Skipp](https://www.skipp.
 - [FINDINGS.md](FINDINGS.md) — results of the AI analysis spike (branching factor, search depth, tournaments).
 - [HANDOVER.md](HANDOVER.md) — the original brief.
 
+## Web game
+
+```sh
+npm run dev       # play locally at http://localhost:5173
+npm run build     # static site in dist/, deployable to any static host
+```
+
+Play against the computer (Easy: depth 2, Medium: depth 4, Hard: 1 s per move, Expert: 3 s per
+move, searched in a Web Worker) or two players on one device. A turn is entered by clicking a
+base to move, then a top, then its destination.
+
 ## Layout
 
 | Path | Contents |
 |---|---|
+| `app` | Vite web game: SVG board, click-to-move input (`input.ts`), AI worker |
 | `src/engine` | Board geometry, positions, legal complete turns, win/draw detection, notation; `fast.ts` has the allocation-free turn generation and make/unmake used by the search |
 | `src/search` | Evaluation, alpha-beta with iterative deepening and transposition table, weight presets |
 | `src/agents` | Random, greedy and search agents; `makeAgent(spec)` builds one from a string |

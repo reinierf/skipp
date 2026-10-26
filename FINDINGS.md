@@ -129,7 +129,8 @@ gained 150 Elo, so systematic tuning is likely to find more.
 2. **Evaluation tuning.** Automate weight tuning with self-play (SPSA or simple local search using
    the tournament runner), then try new features: blocked or jammed bases, sprint-route
    accessibility to goal cells, and contested goal cells.
-3. **Search speed.** Make/unmake, allocation-free move generation and PVS are done. Remaining
+3. **Search speed.** Make/unmake, allocation-free move generation and principal-variation search
+   (PVS) are done. Remaining
    options are aspiration windows (small, exact) and late-move reductions. Late-move reductions can
    change move choices, so check them in a tournament before adopting.
 

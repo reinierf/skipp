@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skipp</title>
+    <meta name="description" content="Play the board game Skipp against the computer or a friend." />
+  </head>
+  <body>
+    <header>
+      <h1>Skipp</h1>
+    </header>
+    <main class="layout">
+      <section class="play">
+        <svg id="board" role="img" aria-label="Skipp board"></svg>
+        <p id="status" aria-live="polite"></p>
+        <div class="turn-actions">
+          <button id="back" type="button" hidden>Take back base move</button>
+          <button id="pass" type="button" hidden>Pass</button>
+        </div>
+      </section>
+      <aside class="panel">
+        <label>
+          Mode
+          <select id="mode">
+            <option value="ai">Against the computer</option>
+            <option value="pvp">Two players</option>
+          </select>
+        </label>
+        <label id="side-row">
+          You play
+          <select id="side">
+            <option value="0">Orange (moves first)</option>
+            <option value="1">Blue</option>
+          </select>
+        </label>
+        <label id="level-row">
+          Difficulty
+          <select id="level">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+            <option value="expert">Expert</option>
+          </select>
+        </label>
+        <div class="buttons">
+          <button id="new" type="button">New game</button>
+          <button id="undo" type="button">Undo</button>
+        </div>
+        <details>
+          <summary>How to play</summary>
+          <p>Get one of your <strong>tops</strong> onto the dark grey row on the far side to win.</p>
+          <p>Each turn has two steps:</p>
+          <ol>
+            <li><strong>Move a base</strong>: one of your bases without a top moves one cell straight forward, into an empty cell or swapping with an empty opponent base. This step is mandatory when possible.</li>
+            <li><strong>Move a top</strong> diagonally forward, only over bases. <em>Sprint</em> any distance over a straight run of empty bases, or <em>jump</em> an adjacent opponent top onto the empty base behind it, removing that top.</li>
+          </ol>
+          <p>If neither player can move, the game is a draw. <a href="https://www.skipp.game/speluitleg.html" target="_blank" rel="noopener">Full rules (Dutch)</a></p>
+        </details>
+        <h2>Moves</h2>
+        <ol id="moves"></ol>
+      </aside>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

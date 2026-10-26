@@ -11,12 +11,16 @@
     "bench": "tsx src/analysis/search-bench.ts",
     "compare": "tsx src/analysis/search-compare.ts",
     "tournament": "tsx src/analysis/tournament.ts",
-    "profile": "tsx src/analysis/profile-search.ts"
+    "profile": "tsx src/analysis/profile-search.ts",
+    "dev": "vite app",
+    "build": "vite build app",
+    "preview": "vite preview app"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }
 }

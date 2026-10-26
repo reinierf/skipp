@@ -1,0 +1,276 @@
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --text: #1d2330;
+  --muted: #5d6677;
+  --border: #d9dde4;
+  --hex: #ffffff;
+  --hex-stroke: #c9ced8;
+  --goal: #8a8f99;
+  --orange: #f07a2a;
+  --orange-dark: #b9541a;
+  --blue: #3c9be0;
+  --blue-dark: #1f6aa6;
+  --accent: #2f7d4f;
+  --last: #f2d36b;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #15181e;
+    --surface: #1f232b;
+    --text: #e7eaf0;
+    --muted: #9aa3b2;
+    --border: #343a46;
+    --hex: #2a2f39;
+    --hex-stroke: #414856;
+    --goal: #555c69;
+    --accent: #5cc38a;
+    --last: #a88a2c;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+header {
+  padding: 12px 16px 0;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+
+h2 {
+  font-size: 14px;
+  margin: 16px 0 6px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.play {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+#board {
+  width: 100%;
+  max-width: 620px;
+  max-height: calc(100vh - 150px);
+  touch-action: manipulation;
+  user-select: none;
+}
+
+#status {
+  margin: 0;
+  min-height: 2.9em;
+  width: 100%;
+  max-width: 620px;
+  padding-left: 12px;
+  border-left: 4px solid transparent;
+}
+
+#status[data-side='orange'] {
+  border-left-color: var(--orange);
+}
+
+#status[data-side='blue'] {
+  border-left-color: var(--blue);
+}
+
+.turn-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  align-self: start;
+}
+
+.panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.panel label[hidden] {
+  display: none;
+}
+
+select,
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.buttons button {
+  flex: 1;
+}
+
+details {
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+details p,
+details ol {
+  margin: 6px 0;
+}
+
+details a {
+  color: var(--accent);
+}
+
+#moves {
+  margin: 0;
+  padding-left: 32px;
+  max-height: 240px;
+  overflow-y: auto;
+  font: 13px/1.6 ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+#moves li.orange::marker {
+  color: var(--orange);
+}
+
+#moves li.blue::marker {
+  color: var(--blue);
+}
+
+/* Board */
+
+.hex {
+  fill: var(--hex);
+  stroke: var(--hex-stroke);
+  stroke-width: 1.5;
+}
+
+.hex.goal {
+  fill: var(--goal);
+}
+
+.hex.last {
+  stroke: var(--last);
+  stroke-width: 4;
+}
+
+.cell {
+  cursor: default;
+}
+
+.cell:has(.clickable) {
+  cursor: pointer;
+}
+
+.base.orange {
+  fill: var(--orange);
+  stroke: var(--orange-dark);
+  stroke-width: 2;
+}
+
+.base.blue {
+  fill: var(--blue);
+  stroke: var(--blue-dark);
+  stroke-width: 2;
+}
+
+.top {
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+
+.top.orange {
+  fill: var(--orange-dark);
+}
+
+.top.blue {
+  fill: var(--blue-dark);
+}
+
+.top-knob {
+  fill: #ffffff;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--accent);
+  pointer-events: none;
+}
+
+.ring.movable {
+  stroke-width: 3;
+  stroke-dasharray: 5 4;
+}
+
+.ring.selected {
+  stroke-width: 5;
+}
+
+.target {
+  fill: var(--accent);
+  opacity: 0.85;
+  pointer-events: none;
+}
