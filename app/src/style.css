@@ -212,7 +212,9 @@ details a {
 
 .hex.last {
   stroke: var(--last);
-  stroke-width: 4;
+  stroke-width: 2.5;
+  stroke-dasharray: 0.1 6;
+  stroke-linecap: round;
 }
 
 .cell {
