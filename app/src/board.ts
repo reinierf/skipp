@@ -2,7 +2,7 @@
 // Two layers: hexes (which take the clicks) and pieces on top (which ignore the pointer), so a
 // moving piece can be raised above everything during its animation.
 
-import { CELLS, IS_GOAL, MAX_Y, NONE, ORANGE, type BaseMove, type GameState, type Player, type TopMove } from '../../src/engine';
+import { CELLS, IS_GOAL, MAX_Y, NONE, ORANGE, type BaseMove, type GameState, type Player, type TopMove, type Turn } from '../../src/engine';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const R = 40;
@@ -25,6 +25,8 @@ export interface Highlights {
   targets: Set<number>;
   /** Cells changed by the last turn. */
   lastMove: Set<number>;
+  /** A suggested turn, drawn as arrows. */
+  hint?: Turn | null;
 }
 
 /** A step that just happened and should be animated; the state passed in is the position after it. */
@@ -113,6 +115,8 @@ export function renderBoard(
     if (hl.targets.has(cell.id)) el('circle', { cx: x, cy: y, r: R * 0.18, class: 'target' }, pieces);
   }
 
+  if (hl.hint) drawHint(svg, hl.hint, flipped);
+
   if (reducedMotion()) return;
   const { base, top } = motion;
   if (base) {
@@ -143,6 +147,27 @@ export function renderBoard(
       );
       if (moved?.parentElement) pieceLayer.appendChild(moved.parentElement);
     }
+  }
+}
+
+/** Arrows for the base step and the top step of a suggested turn, above the pieces. */
+function drawHint(svg: SVGSVGElement, turn: Turn, flipped: boolean): void {
+  const layer = el('g', { class: 'hint-arrows' }, svg);
+  const marker = el('marker', { id: 'hint-head', viewBox: '0 0 10 10', refX: 6, refY: 5, markerWidth: 4, markerHeight: 4, orient: 'auto' }, el('defs', {}, layer));
+  el('path', { d: 'M0,0 L10,5 L0,10 z', class: 'hint-head' }, marker);
+  for (const step of [turn.base, turn.top]) {
+    if (!step) continue;
+    const [x0, y0] = centre(step.from, flipped);
+    const [x1, y1] = centre(step.to, flipped);
+    // Start and end short of the cell centres so the arrow does not hide the pieces it joins.
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const [ux, uy] = [(x1 - x0) / len, (y1 - y0) / len];
+    const inset = R * 0.35;
+    el(
+      'line',
+      { x1: x0 + ux * inset, y1: y0 + uy * inset, x2: x1 - ux * inset, y2: y1 - uy * inset, class: 'hint-arrow', 'marker-end': 'url(#hint-head)' },
+      layer,
+    );
   }
 }
 

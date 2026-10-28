@@ -15,7 +15,8 @@ import {
   type Player,
   type Turn,
 } from '../../src/engine';
-import type { AiRequest, AiResponse, Level } from './ai.worker';
+import type { Reason } from '../../src/hints';
+import type { AiRequest, AiResponse, HintRequest, HintResponse, Level } from './ai.worker';
 import { BASE_MS, playerName, renderBoard, type Highlights, type Motion } from './board';
 import {
   EMPTY_SELECTION,
@@ -47,6 +48,8 @@ const statusEl = $<HTMLParagraphElement>('status');
 const passBtn = $<HTMLButtonElement>('pass');
 const undoBtn = $<HTMLButtonElement>('undo');
 const replayBtn = $<HTMLButtonElement>('replay');
+const hintBtn = $<HTMLButtonElement>('hint-btn');
+const hintEl = $<HTMLDivElement>('hint');
 const radio = (name: string, value: string) =>
   document.querySelector<HTMLInputElement>(`input[name="${name}"][value="${value}"]`)!;
 const radioValue = (name: string) => document.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)!.value;
@@ -136,6 +139,9 @@ const REPLAY_STEP_MS = 700;
 /** The position shown, and the cells highlighted, while the last turn is replayed step by step. */
 let replayShown: { state: GameState; cells: Set<number> } | null = null;
 let replayId = 0;
+/** The hint for the current position: being searched for, or found. */
+let hint: { pending: true } | { pending: false; turn: Turn | null; depth: number; reasons: Reason[] } | null = null;
+let hintId = 0;
 const aiStepDelay = () => {
   const [min, max] = AI_STEP_DELAY_MS[settings.speed];
   return min + Math.random() * (max - min);
@@ -163,7 +169,13 @@ function render(motion: Motion = {}): void {
   const humanToMove = !over && !thinking && !replayShown && isHumanTurn(state);
   const base = humanToMove ? effectiveBase(turns, sel) : undefined;
 
-  const hl: Highlights = { clickable: new Set(), selected: null, targets: new Set(), lastMove: replayShown?.cells ?? lastMoveCells() };
+  const hl: Highlights = {
+    clickable: new Set(),
+    selected: null,
+    targets: new Set(),
+    lastMove: replayShown?.cells ?? lastMoveCells(),
+    hint: humanToMove && hint && !hint.pending ? hint.turn : null,
+  };
   let shown = replayShown?.state ?? (aiBaseShown ? play(state, { base: aiBaseShown, top: null }) : state);
   if (humanToMove && !isPassOnly(turns)) {
     if (base === undefined) {
@@ -189,6 +201,9 @@ function render(motion: Motion = {}): void {
   undoBtn.disabled = history.length === 1;
   const last = log[log.length - 1];
   replayBtn.disabled = !last || (!last.base && !last.top) || thinking || replayShown !== null;
+  hintBtn.disabled = !humanToMove || isPassOnly(turns);
+  hintBtn.setAttribute('aria-pressed', String(hint !== null));
+  renderHint(humanToMove);
   saveGame();
   renderMoves();
 }
@@ -212,6 +227,64 @@ function statusText(state: GameState, turns: Turn[], base: ReturnType<typeof eff
   return `${you}: now move a top diagonally forward (sprint over empty bases, or jump an opponent's top).`;
 }
 
+function renderHint(humanToMove: boolean): void {
+  hintEl.hidden = !hint || !humanToMove;
+  if (hintEl.hidden || !hint) return;
+  const title = hintEl.querySelector('.hint-title')!;
+  const list = hintEl.querySelector('.hint-reasons')!;
+  if (hint.pending) {
+    title.textContent = 'Looking for a good move…';
+    list.replaceChildren();
+    return;
+  }
+  if (!hint.turn) {
+    title.textContent = 'No hint available.';
+    list.replaceChildren();
+    return;
+  }
+  const notation = document.createElement('span');
+  notation.className = 'notation';
+  notation.textContent = turnToString(hint.turn);
+  const depth = document.createElement('span');
+  depth.className = 'depth';
+  depth.textContent = ` · looked ${hint.depth} turns ahead`;
+  title.replaceChildren('Hint: ', notation, depth);
+  list.replaceChildren(
+    ...hint.reasons.map((r) => {
+      const li = document.createElement('li');
+      li.textContent = r.text;
+      return li;
+    }),
+  );
+}
+
+/** Asks the worker for a hint for the player to move; a second click hides it again. */
+function toggleHint(): void {
+  if (hint) return clearHint(), render();
+  const state = current();
+  const id = ++hintId;
+  // A base step already selected is compared with the hint, so the player learns why not.
+  const chosenBase = effectiveBase(legalTurns(state), sel);
+  const req: HintRequest = { kind: 'hint', id, key: toKey(state), ...(chosenBase !== undefined && { chosenBase }) };
+  hint = { pending: true };
+  render();
+  const onReply = (e: MessageEvent<HintResponse>) => {
+    if (e.data.kind !== 'hint' || e.data.id !== id) return;
+    worker.removeEventListener('message', onReply);
+    if (id !== hintId) return;
+    const turn = legalTurns(state).find((t) => encodeTurn(t) === e.data.code) ?? null;
+    hint = { pending: false, turn, depth: e.data.depth, reasons: e.data.reasons };
+    render();
+  };
+  worker.addEventListener('message', onReply);
+  worker.postMessage(req);
+}
+
+function clearHint(): void {
+  hintId++;
+  hint = null;
+}
+
 function renderMoves(): void {
   movesEl.replaceChildren(
     ...log.map((t, i) => {
@@ -229,6 +302,7 @@ function commit(turn: Turn, motion: Motion = {}): void {
   history.push(play(current(), turn));
   log.push(turn);
   sel = EMPTY_SELECTION;
+  clearHint();
   // Decide before rendering, so one render shows both the animation and the "thinking" state.
   thinking = aiToMove();
   render(motion);
@@ -281,10 +355,10 @@ function requestAiMove(): void {
   const state = current();
   const id = ++requestId;
   const started = performance.now();
-  const req: AiRequest = { id, key: toKey(state), ply: state.ply, level: game.level };
+  const req: AiRequest = { kind: 'move', id, key: toKey(state), ply: state.ply, level: game.level };
   worker.postMessage(req);
   const onReply = (e: MessageEvent<AiResponse>) => {
-    if (e.data.id !== id) return;
+    if (e.data.kind !== 'move' || e.data.id !== id) return;
     worker.removeEventListener('message', onReply);
     const turn = legalTurns(state).find((t) => encodeTurn(t) === e.data.code);
     const finish = () => {
@@ -362,6 +436,7 @@ function showMatch(): void {
 function newGame(): void {
   cancelAi();
   cancelReplay();
+  clearHint();
   game = { ...settings };
   history = [startState()];
   log = [];
@@ -374,6 +449,7 @@ function newGame(): void {
 function undo(): void {
   cancelAi();
   cancelReplay();
+  clearHint();
   if (history.length === 1) return;
   history.pop();
   log.pop();
@@ -434,6 +510,7 @@ $('start').addEventListener('click', () => {
 });
 undoBtn.addEventListener('click', undo);
 replayBtn.addEventListener('click', replayLastTurn);
+hintBtn.addEventListener('click', toggleHint);
 passBtn.addEventListener('click', () => commit(PASS));
 
 if (loadGame()) {

@@ -18,6 +18,13 @@ Play against the computer (Easy: depth 2, Medium: depth 4, Hard: 1 s per move, E
 move, searched in a Web Worker) or two players on one device. A turn is entered by clicking a
 base to move, then a top, then its destination.
 
+The hint button suggests a turn, drawn as arrows, and says why it is good. The reasons come from
+[src/hints](src/hints): a 2-second search finds the turn, its expected line of play, the next-best
+turn and one natural-looking alternative (the base step the player already chose, a tempting
+capture, or the safe move). Tactical reasons are read along the expected line, so a sacrifice is
+explained by how it pays off; positional reasons compare the evaluation terms where the hint's
+line and the next-best line lead.
+
 ### Deployment
 
 Every push to `main` deploys the game to GitHub Pages at <https://reinierf.github.io/skipp/>
@@ -37,6 +44,7 @@ further configuration.
 | `app` | Vite web game: SVG board, click-to-move input (`input.ts`), AI worker |
 | `src/engine` | Board geometry, positions, legal complete turns, win/draw detection, notation; `fast.ts` has the allocation-free turn generation and make/unmake used by the search |
 | `src/search` | Evaluation, alpha-beta with iterative deepening and transposition table, weight presets |
+| `src/hints` | Hint analysis (`analyse`) and the rules that turn it into reasons (`explain`) |
 | `src/agents` | Random, greedy and search agents; `makeAgent(spec)` builds one from a string |
 | `src/analysis` | Analysis scripts that write their reports to `data/` |
 | `test` | Vitest tests: rules, tactics, alpha-beta correctness, random self-play invariants |

@@ -103,6 +103,67 @@ export function evaluate(state: GameState, w: Weights = DEFAULT_WEIGHTS): number
   return toMoveIsOrange ? orange - blue : blue - orange;
 }
 
+/** The raw quantities `evaluate` weighs, for one player. */
+export interface Features {
+  tops: number;
+  /** Sum over tops of squared progress. */
+  progress: number;
+  topMoves: number;
+  /** Top moves landing on a goal cell. */
+  goalMoves: number;
+  baseMoves: number;
+}
+
+/** Features of Orange and Blue, in that order. Slower than `evaluate`; not for the search. */
+export function features(state: GameState): [Features, Features] {
+  const out: [Features, Features] = [
+    { tops: 0, progress: 0, topMoves: 0, goalMoves: 0, baseMoves: 0 },
+    { tops: 0, progress: 0, topMoves: 0, goalMoves: 0, baseMoves: 0 },
+  ];
+  for (let id = 0; id < NUM_CELLS; id++) {
+    const t = state.top[id]!;
+    if (t !== NONE) {
+      const f = out[t]!;
+      const g = PROGRESS[t]![id]!;
+      const moves = topMovesFrom(state.base, state.top, t as Player, id);
+      f.tops++;
+      f.progress += g * g;
+      f.topMoves += moves & 0xff;
+      f.goalMoves += moves >> 8;
+      continue;
+    }
+    const b = state.base[id]!;
+    if (b === NONE) continue;
+    const to = FORWARD[b]![id]!;
+    if (to < 0) continue;
+    const there = state.base[to]!;
+    if (there === NONE || (there !== b && state.top[to] === NONE)) out[b]!.baseMoves++;
+  }
+  return out;
+}
+
+/** The weighted terms of `evaluate`, side to move minus opponent. They sum to `evaluate`. */
+export interface Terms {
+  material: number;
+  advance: number;
+  threats: number;
+  topMobility: number;
+  baseMobility: number;
+}
+
+export function evaluateTerms(state: GameState, w: Weights = DEFAULT_WEIGHTS): Terms {
+  const fs = features(state);
+  const me = fs[state.toMove]!;
+  const them = fs[1 - state.toMove]!;
+  return {
+    material: (me.tops - them.tops) * w.top,
+    advance: (w.advance * (me.progress - them.progress)) / MAX_Y,
+    threats: me.goalMoves * (w.threat + w.threatToMove) - them.goalMoves * w.threat,
+    topMobility: (me.topMoves - them.topMoves) * w.topMobility,
+    baseMobility: (me.baseMoves - them.baseMoves) * w.baseMobility,
+  };
+}
+
 const PROGRESS0 = PROGRESS[ORANGE]!;
 const PROGRESS1 = PROGRESS[BLUE]!;
 

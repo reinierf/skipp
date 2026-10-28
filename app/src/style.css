@@ -18,6 +18,7 @@
   --sky: #1baedc;
   --accent: #5cc38a;
   --last: #e9b400;
+  --hint: #7a4fd1;
   --shadow: 1px 1px 7px -3px #000;
   color-scheme: light;
 }
@@ -35,6 +36,7 @@
     --hex-stroke: #44606a;
     --goal: #10191c;
     --last: #c99a1a;
+    --hint: #b99cff;
     --shadow: 1px 1px 10px -3px #000;
     color-scheme: dark;
   }
@@ -53,6 +55,7 @@
   --hex-stroke: #44606a;
   --goal: #10191c;
   --last: #c99a1a;
+  --hint: #b99cff;
   --shadow: 1px 1px 10px -3px #000;
   color-scheme: dark;
 }
@@ -351,6 +354,71 @@ button:disabled {
   cursor: default;
 }
 
+#hint {
+  width: 100%;
+  max-width: 620px;
+  background: var(--surface);
+  border-left: 4px solid var(--hint);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+#hint[hidden] {
+  display: none;
+}
+
+/* On narrow screens the slot plays no part in the layout. */
+.hint-slot {
+  display: contents;
+}
+
+/* On wide screens the slot keeps its height with or without a hint, so showing or clearing
+   one never changes the page height (which would make the page jump when scrolled). A hint
+   taller than the slot scrolls inside it. */
+@media (min-width: 1101px) {
+  .hint-slot {
+    display: block;
+    width: 100%;
+    max-width: 620px;
+    height: 190px;
+  }
+
+  #hint {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+}
+
+.hint-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.hint-title .notation {
+  font: 700 13px ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.hint-title .depth {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.hint-reasons {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.hint-reasons li + li {
+  margin-top: 2px;
+}
+
+#hint-btn[aria-pressed='true'] {
+  color: var(--hint);
+  border-color: var(--hint);
+}
+
 #moves {
   margin: 0;
   padding-left: 32px;
@@ -449,4 +517,19 @@ button:disabled {
 
 .pieces {
   pointer-events: none;
+}
+
+.hint-arrows {
+  pointer-events: none;
+}
+
+.hint-arrow {
+  stroke: var(--hint);
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.hint-head {
+  fill: var(--hint);
 }

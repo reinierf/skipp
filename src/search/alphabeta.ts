@@ -8,6 +8,7 @@ import {
   PASS_CODE,
   canMove,
   decodeTurn,
+  encodeTurn,
   generateTurns,
   legalTurns,
   makeTurn,
@@ -44,6 +45,8 @@ export interface SearchOptions {
    * Off by default, which keeps the search deterministic.
    */
   random?: { margin: number; rng?: () => number };
+  /** Only consider root turns for which this returns true. */
+  rootFilter?: (turn: Turn) => boolean;
 }
 
 export interface DepthReport {
@@ -64,6 +67,11 @@ export interface SearchResult {
   nodes: number;
   timeMs: number;
   iterations: DepthReport[];
+  /**
+   * Expected line of play starting with `best`, read back from the transposition table and
+   * at most `depth` turns long. Just [best] without a table.
+   */
+  pv: Turn[];
 }
 
 class Aborted extends Error {}
@@ -284,19 +292,21 @@ class Searcher {
    * Searches the root to `depth`; `first` is the encoded turn to try first (or -1).
    * With a `margin`, also returns every turn scoring within it of the best, with exact scores.
    */
-  root(depth: number, first: number, margin?: number): RootResult {
+  root(depth: number, first: number, margin?: number, allowed?: Set<number>): RootResult {
     this.nodes++;
     const end = generateTurns(this.state, TURNS, 0);
     this.orderKeys(0, end, this.state.toMove, 0, first);
     let alpha = -Infinity;
     let best = -1;
     const near: { code: number; score: number }[] = [];
-    for (let n = 0; n < end; n++) {
+    for (let i = 0, n = 0; i < end; i++) {
       const c = TURNS[takeBest(0, end)]!;
+      if (allowed && !allowed.has(c)) continue;
+      n++;
       this.make(c);
       // Lowering the window by the margin makes scores of turns within it exact, not bounds.
       const floor = margin === undefined ? alpha : alpha - margin - NULL_WINDOW;
-      const score = n === 0 ? -this.negamax(depth - 1, -Infinity, Infinity, 1) : this.pvs(depth - 1, floor, Infinity, 1);
+      const score = n === 1 ? -this.negamax(depth - 1, -Infinity, Infinity, 1) : this.pvs(depth - 1, floor, Infinity, 1);
       this.unmake(c);
       if (margin !== undefined && score > floor) near.push({ code: c, score });
       if (score > alpha || best < 0) {
@@ -311,8 +321,11 @@ class Searcher {
 /** Iterative-deepening alpha-beta over complete turns. Does not modify `state`. */
 export function search(state: GameState, opts: SearchOptions): SearchResult {
   const start = performance.now();
-  const result: SearchResult = { best: null, score: 0, depth: 0, nodes: 0, timeMs: 0, iterations: [] };
-  if (legalTurns(state).length === 0) return result;
+  const result: SearchResult = { best: null, score: 0, depth: 0, nodes: 0, timeMs: 0, iterations: [], pv: [] };
+  const legal = legalTurns(state);
+  const filter = opts.rootFilter;
+  const allowed = filter ? new Set(legal.filter(filter).map(encodeTurn)) : undefined;
+  if (legal.length === 0 || allowed?.size === 0) return result;
   const tt = opts.tt === false ? null : (opts.tt ?? new TranspositionTable());
   const s = new Searcher(state.clone(), opts.weights ?? DEFAULT_WEIGHTS, opts.timeMs, tt, opts.heuristics ?? true);
 
@@ -322,7 +335,7 @@ export function search(state: GameState, opts: SearchOptions): SearchResult {
     const iterStart = performance.now();
     const nodesBefore = s.nodes;
     try {
-      const root = s.root(depth, bestCode, opts.random?.margin);
+      const root = s.root(depth, bestCode, opts.random?.margin, allowed);
       const { best, score } = root;
       bestCode = best;
       near = root.near;
@@ -341,7 +354,28 @@ export function search(state: GameState, opts: SearchOptions): SearchResult {
   }
   result.nodes = s.nodes;
   result.timeMs = performance.now() - start;
+  if (result.best) result.pv = tt ? principalVariation(state, result.best, tt, result.depth) : [result.best];
   return result;
+}
+
+/**
+ * Follows the best moves stored in the table from the position after `first`. A position the
+ * search won outright has no stored move, so a turn reaching the goal ends the line instead.
+ */
+function principalVariation(state: GameState, first: Turn, tt: TranspositionTable, maxLen: number): Turn[] {
+  const pv = [first];
+  let s = play(state, first);
+  while (pv.length < maxLen && s.winner === NONE) {
+    const turns = legalTurns(s);
+    if (turns.length === 1 && turns[0] === PASS && !canMove(s, opponent(s.toMove))) break;
+    const code = tt.get(...hashState(s))?.move;
+    const goal = IS_GOAL[s.toMove]!;
+    const next = turns.find((t) => encodeTurn(t) === code) ?? turns.find((t) => t.top !== null && goal[t.top.to]);
+    if (!next) break;
+    pv.push(next);
+    s = play(s, next);
+  }
+  return pv;
 }
 
 /** Plain negamax without pruning or win shortcuts. Reference for tests and benchmarks. */
