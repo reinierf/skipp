@@ -314,7 +314,7 @@ function cancelAi(): void {
 function showMatch(): void {
   // Use the dialog's own wording for the difficulty.
   const level = radio('level', game.level).parentElement!.textContent;
-  matchEl.textContent = game.mode === 'ai' ? `Against the computer · ${level}` : 'Two players';
+  matchEl.textContent = game.mode === 'ai' ? `Player vs Computer · ${level}` : 'Player vs Player';
 }
 
 function newGame(): void {
