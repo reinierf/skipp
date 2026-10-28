@@ -18,6 +18,8 @@ export const BASE_MS = 380;
 const TOP_MS_PER_CELL = 160;
 const TOP_MS_MIN = 380;
 const CAPTURE_FADE_MS = 450;
+/** One full turn of the goal cell the winning top reached. */
+const WIN_SPIN_MS = 1000;
 
 export interface Highlights {
   /** Cells that can be clicked as the next step. */
@@ -97,6 +99,9 @@ export function renderBoard(
   const pieceLayer = el('g', { class: 'pieces' }, svg);
   const baseEls = new Map<number, SVGCircleElement>();
   const topEls = new Map<number, SVGGElement>();
+  // The goal cell the winner's top reached.
+  const win = state.winner === NONE ? -1 : CELLS.findIndex((c) => IS_GOAL[state.winner]![c.id] && state.top[c.id] === state.winner);
+  let winHex: SVGPolygonElement | undefined;
 
   for (const cell of CELLS) {
     const [x, y] = centre(cell.id, flipped);
@@ -104,8 +109,10 @@ export function renderBoard(
     const classes = ['hex'];
     if (IS_GOAL[0]![cell.id] || IS_GOAL[1]![cell.id]) classes.push('goal');
     if (hl.lastMove.has(cell.id)) classes.push('last');
+    if (cell.id === win) classes.push('win', colourClass(state.winner));
     if (hl.clickable.has(cell.id) || hl.targets.has(cell.id)) classes.push('clickable');
-    el('polygon', { points: hexPoints(x, y, R - 1.5), class: classes.join(' ') }, hexGroup);
+    const hex = el('polygon', { points: hexPoints(x, y, R - 1.5), class: classes.join(' ') }, hexGroup);
+    if (cell.id === win) winHex = hex;
     el('title', {}, hexGroup).textContent = cell.name;
     hexGroup.addEventListener('click', () => onCell(cell.id));
 
@@ -152,6 +159,16 @@ export function renderBoard(
         { duration: Math.max(ms, CAPTURE_FADE_MS), easing: 'ease-in' },
       );
       if (moved?.parentElement) pieceLayer.appendChild(moved.parentElement);
+    }
+    // The turn that just won: once the top lands, the goal cell under it turns once.
+    if (top.to === win && winHex) {
+      const [x, y] = centre(win, flipped);
+      winHex.style.transformOrigin = `${x}px ${y}px`;
+      winHex.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
+        duration: WIN_SPIN_MS,
+        delay: ms,
+        easing: 'ease-in-out',
+      });
     }
   }
 }

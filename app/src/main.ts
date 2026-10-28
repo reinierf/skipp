@@ -200,7 +200,10 @@ function render(motion: Motion = {}): void {
   const labels = settings.coords === 'on' || (humanToMove && hint !== null);
   renderBoard(svg, shown, hl, { flipped, labels }, onCell, motion);
   statusEl.textContent = statusText(state, turns, base);
-  statusEl.dataset.side = over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
+  const r = result(state);
+  const won = !replayShown && (r === 'orange' || r === 'blue');
+  statusEl.dataset.side = won ? r : over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
+  statusEl.classList.toggle('won', won);
   passBtn.hidden = !(humanToMove && isPassOnly(turns));
   undoBtn.disabled = history.length === 1;
   const last = log[log.length - 1];

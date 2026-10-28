@@ -181,6 +181,12 @@ h3 {
   background: var(--blue);
 }
 
+#status.won {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: var(--heading);
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -452,6 +458,21 @@ button:disabled {
   stroke-width: 2.5;
   stroke-dasharray: 0.1 6;
   stroke-linecap: round;
+}
+
+.hex.win {
+  stroke-width: 5;
+  stroke-dasharray: none;
+}
+
+.hex.win.orange {
+  fill: color-mix(in srgb, var(--orange) 40%, var(--hex));
+  stroke: var(--orange);
+}
+
+.hex.win.blue {
+  fill: color-mix(in srgb, var(--blue) 40%, var(--hex));
+  stroke: var(--blue);
 }
 
 .cell {
