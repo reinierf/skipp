@@ -2,12 +2,15 @@
 // Two layers: hexes (which take the clicks) and pieces on top (which ignore the pointer), so a
 // moving piece can be raised above everything during its animation.
 
-import { CELLS, IS_GOAL, MAX_Y, NONE, ORANGE, type BaseMove, type GameState, type Player, type TopMove, type Turn } from '../../src/engine';
+import { CELLS, IS_GOAL, cellByName, MAX_Y, NONE, ORANGE, type BaseMove, type GameState, type Player, type TopMove, type Turn } from '../../src/engine';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const R = 40;
 const H = (Math.sqrt(3) / 2) * R;
-const PAD = 10;
+// The padding always leaves room for the coordinate labels, so showing them never resizes the board.
+const PAD = 26;
+/** Distance of a coordinate label's centre from the board's edge. */
+const LABEL_GAP = 13;
 export const VIEW_W = PAD * 2 + R * 2 + 6 * 1.5 * R;
 export const VIEW_H = PAD * 2 + H * 2 + MAX_Y * H;
 
@@ -82,10 +85,12 @@ export function renderBoard(
   svg: SVGSVGElement,
   state: GameState,
   hl: Highlights,
-  flipped: boolean,
+  /** `flipped`: Blue's side at the bottom. `labels`: show column letters and row numbers. */
+  view: { flipped: boolean; labels: boolean },
   onCell: (id: number) => void,
   motion: Motion = {},
 ): void {
+  const { flipped } = view;
   svg.replaceChildren();
   svg.setAttribute('viewBox', `0 0 ${VIEW_W.toFixed(1)} ${VIEW_H.toFixed(1)}`);
   const hexLayer = el('g', { class: 'hexes' }, svg);
@@ -115,6 +120,7 @@ export function renderBoard(
     if (hl.targets.has(cell.id)) el('circle', { cx: x, cy: y, r: R * 0.18, class: 'target' }, pieces);
   }
 
+  if (view.labels) drawLabels(svg, flipped);
   if (hl.hint) drawHint(svg, hl.hint, flipped);
 
   if (reducedMotion()) return;
@@ -147,6 +153,35 @@ export function renderBoard(
       );
       if (moved?.parentElement) pieceLayer.appendChild(moved.parentElement);
     }
+  }
+}
+
+/**
+ * Column letters above and below the board, and row numbers beside the outer columns. Ranks
+ * count within each column, and the shifted columns b, d and f sit half a cell nearer rank 1,
+ * so each number is centred between the two heights. Rank 7 exists only in the shifted columns.
+ */
+function drawLabels(svg: SVGSVGElement, flipped: boolean): void {
+  const layer = el('g', { class: 'coords' }, svg);
+  const label = (x: number, y: number, text: string) => {
+    el('text', { x, y, class: 'coord' }, layer).textContent = text;
+  };
+  for (const cell of CELLS) {
+    if (cell.y > 1) continue;
+    // Once per column, at its first cell.
+    const [x] = centre(cell.id, flipped);
+    label(x, PAD - LABEL_GAP, cell.name[0]!);
+    label(x, VIEW_H - PAD + LABEL_GAP, cell.name[0]!);
+  }
+  // Screen direction of increasing rank. Each number sits beside the diagonal edge on the rank-1
+  // side of its cell, half a hex height from the centre: the lower edge on the normal board, the
+  // upper one on the flipped board.
+  const dir = flipped ? 1 : -1;
+  const a1 = centre(cellByName('a1'), flipped)[1];
+  for (let rank = 1; rank <= 7; rank++) {
+    const y = a1 + dir * 2 * H * (rank - 1) - (dir * H) / 2;
+    label(PAD - LABEL_GAP, y, String(rank));
+    label(VIEW_W - PAD + LABEL_GAP, y, String(rank));
   }
 }
 

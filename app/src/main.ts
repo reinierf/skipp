@@ -33,6 +33,7 @@ import './style.css';
 type Mode = 'ai' | 'pvp';
 type Speed = 'instant' | 'fast' | 'normal' | 'slow';
 type Theme = 'system' | 'light' | 'dark';
+type Coords = 'on' | 'off';
 
 interface Settings {
   mode: Mode;
@@ -40,6 +41,7 @@ interface Settings {
   level: Level;
   speed: Speed;
   theme: Theme;
+  coords: Coords;
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -59,7 +61,7 @@ const matchEl = $<HTMLParagraphElement>('match');
 
 const SETTINGS_KEY = 'skipp.settings';
 function loadSettings(): Settings {
-  const fallback: Settings = { mode: 'ai', human: ORANGE, level: 'medium', speed: 'normal', theme: 'system' };
+  const fallback: Settings = { mode: 'ai', human: ORANGE, level: 'medium', speed: 'normal', theme: 'system', coords: 'off' };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {
@@ -194,7 +196,9 @@ function render(motion: Motion = {}): void {
   }
 
   const flipped = game.mode === 'ai' && game.human !== ORANGE;
-  renderBoard(svg, shown, hl, flipped, onCell, motion);
+  // Hints and the move list use the coordinates, so they are always shown with a hint.
+  const labels = settings.coords === 'on' || (humanToMove && hint !== null);
+  renderBoard(svg, shown, hl, { flipped, labels }, onCell, motion);
   statusEl.textContent = statusText(state, turns, base);
   statusEl.dataset.side = over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
   passBtn.hidden = !(humanToMove && isPassOnly(turns));
@@ -490,6 +494,13 @@ function applyTheme(): void {
   if (settings.theme === 'system') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = settings.theme;
 }
+
+setRadio('coords', settings.coords);
+$('coords').addEventListener('change', (e) => {
+  settings = { ...settings, coords: (e.target as HTMLInputElement).value as Coords };
+  saveSettings();
+  render();
+});
 
 setRadio('theme', settings.theme);
 $('theme').addEventListener('change', (e) => {

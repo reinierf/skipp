@@ -519,6 +519,19 @@ button:disabled {
   pointer-events: none;
 }
 
+.coords {
+  pointer-events: none;
+  user-select: none;
+}
+
+.coord {
+  fill: var(--muted);
+  opacity: 0.75;
+  font: 700 14px 'PT Sans', sans-serif;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
 .hint-arrows {
   pointer-events: none;
 }
