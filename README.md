@@ -18,6 +18,18 @@ Play against the computer (Easy: depth 2, Medium: depth 4, Hard: 1 s per move, E
 move, searched in a Web Worker) or two players on one device. A turn is entered by clicking a
 base to move, then a top, then its destination.
 
+### Deployment
+
+Every push to `main` deploys the game to GitHub Pages at <https://reinierf.github.io/skipp/>
+via [.github/workflows/pages.yml](.github/workflows/pages.yml): it runs `npm ci` and
+`npm run build`, then publishes `dist/`. The workflow does not run the tests or the typecheck,
+so run those before pushing. To redeploy without a new commit, run the workflow by hand from the
+Actions tab ("Run workflow").
+
+One-time setup: in the repository's Settings → Pages, set Source to "GitHub Actions". The Vite
+`base` is `./` (relative asset paths), so the build works under the `/skipp/` subpath without
+further configuration.
+
 ## Layout
 
 | Path | Contents |
