@@ -77,6 +77,44 @@ let history: GameState[] = [startState()];
 let log: Turn[] = [];
 let sel: Selection = EMPTY_SELECTION;
 
+/** The game in progress is saved as its settings and the moves played, and replayed on load. */
+const GAME_KEY = 'skipp.game';
+interface SavedGame {
+  mode: Mode;
+  human: Player;
+  level: Level;
+  moves: number[];
+}
+function saveGame(): void {
+  const saved: SavedGame = { mode: game.mode, human: game.human, level: game.level, moves: log.map(encodeTurn) };
+  try {
+    localStorage.setItem(GAME_KEY, JSON.stringify(saved));
+  } catch {
+    // Storage may be unavailable (private mode); the game is then not kept across visits.
+  }
+}
+/** Restores the saved game; false if there is none or it no longer replays as legal moves. */
+function loadGame(): boolean {
+  try {
+    const saved = JSON.parse(localStorage.getItem(GAME_KEY) ?? 'null') as SavedGame | null;
+    if (!saved || !Array.isArray(saved.moves)) return false;
+    const states = [startState()];
+    const turns: Turn[] = [];
+    for (const code of saved.moves) {
+      const turn = legalTurns(states[states.length - 1]!).find((t) => encodeTurn(t) === code);
+      if (!turn) return false;
+      turns.push(turn);
+      states.push(play(states[states.length - 1]!, turn));
+    }
+    game = { ...settings, mode: saved.mode, human: saved.human, level: saved.level };
+    history = states;
+    log = turns;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const worker = new Worker(new URL('./ai.worker.ts', import.meta.url), { type: 'module' });
 let requestId = 0;
 let thinking = false;
@@ -143,6 +181,7 @@ function render(motion: Motion = {}): void {
   statusEl.dataset.side = over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
   passBtn.hidden = !(humanToMove && isPassOnly(turns));
   undoBtn.disabled = history.length === 1;
+  saveGame();
   renderMoves();
 }
 
@@ -233,7 +272,7 @@ function requestAiMove(): void {
   const state = current();
   const id = ++requestId;
   const started = performance.now();
-  const req: AiRequest = { id, key: toKey(state), level: settings.level };
+  const req: AiRequest = { id, key: toKey(state), level: game.level };
   worker.postMessage(req);
   const onReply = (e: MessageEvent<AiResponse>) => {
     if (e.data.id !== id) return;
@@ -272,15 +311,19 @@ function cancelAi(): void {
   aiBaseShown = null;
 }
 
-function newGame(): void {
-  cancelAi();
-  game = { ...settings };
+function showMatch(): void {
   // Use the dialog's own wording for the difficulty.
   const level = radio('level', game.level).parentElement!.textContent;
   matchEl.textContent = game.mode === 'ai' ? `Against the computer · ${level}` : 'Two players';
+}
+
+function newGame(): void {
+  cancelAi();
+  game = { ...settings };
   history = [startState()];
   log = [];
   sel = EMPTY_SELECTION;
+  showMatch();
   render();
   maybeAiMove();
 }
@@ -348,4 +391,10 @@ $('start').addEventListener('click', () => {
 undoBtn.addEventListener('click', undo);
 passBtn.addEventListener('click', () => commit(PASS));
 
-newGame();
+if (loadGame()) {
+  showMatch();
+  render();
+  maybeAiMove();
+} else {
+  newGame();
+}
