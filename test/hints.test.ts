@@ -5,6 +5,7 @@ import {
   cellName,
   fromKey,
   legalTurns,
+  parseTurn,
   play,
   result,
   startState,
@@ -139,6 +140,19 @@ describe('hint explanations', () => {
     expect(a.alternative?.kind).toBe('chosen-base');
     expect(a.alternative?.turn.base?.from).toBe(cellByName('g2'));
     expect(text(explain(s, a), 'alternative')).toContain('With the base step you chose');
+  });
+
+  it('describes what the base step does for the top step', () => {
+    // Explains a given turn without searching, to pin down each case.
+    const bridge = (cells: Record<string, string>, turn: string) => {
+      const s = stateFromCells(cells);
+      const t = parseTurn(s, turn);
+      const line = { turn: t, score: 0, depth: 1, scores: [0], pv: [t] };
+      return text(explain(s, { best: line, runnerUp: null, alternative: null }), 'bridge');
+    };
+    expect(bridge({ c1: 'O', d1: 'o', a1: 'o', g6: 'b' }, 'd1-d2 c1-d2')).toBe('The base step to d2 gives your top a base to step onto.');
+    expect(bridge({ c1: 'O', d2: 'o', e1: 'o', g6: 'b' }, 'e1-e2 c1-e2')).toBe("The base step to e2 puts a base at the end of your top's sprint.");
+    expect(bridge({ c1: 'O', d2: 'o', e1: 'o', f3: 'o', g6: 'b' }, 'e1-e2 c1-f3')).toBe('The base step to e2 fills the gap your top sprints across to f3.');
   });
 
   it('always gives at least one reason', () => {

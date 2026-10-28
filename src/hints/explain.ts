@@ -240,14 +240,16 @@ export function explain(state: GameState, a: Analysis): Hint {
   if (threats.length > 0) {
     add('threat', `Threatens to reach the goal on ${cellList(threats)} next turn, so ${them} has to respond.`);
   }
-  if (turn.base && !turn.base.swap && turn.top && topPath(turn.top, me).includes(turn.base.to)) {
+  const path = turn.top ? topPath(turn.top, me) : [];
+  if (turn.base && !turn.base.swap && turn.top && path.includes(turn.base.to)) {
     const at = cellName(turn.base.to);
-    add(
-      'bridge',
-      turn.top.captured !== NONE && turn.top.to === turn.base.to
-        ? `The base step to ${at} puts a base where your top lands after the jump.`
-        : `The base step to ${at} builds part of the bridge your top sprints over.`,
-    );
+    const ends = turn.top.to === turn.base.to;
+    let text: string;
+    if (turn.top.captured !== NONE) text = `The base step to ${at} puts a base where your top lands after the jump.`;
+    else if (path.length === 1) text = `The base step to ${at} gives your top a base to step onto.`;
+    else if (ends) text = `The base step to ${at} puts a base at the end of your top's sprint.`;
+    else text = `The base step to ${at} fills the gap your top sprints across to ${cellName(turn.top.to)}.`;
+    add('bridge', text);
   }
 
   // Positional: compare where the hint's line and the next-best line lead. Lines searched to
