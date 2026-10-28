@@ -46,6 +46,7 @@ const svg = document.getElementById('board') as unknown as SVGSVGElement;
 const statusEl = $<HTMLParagraphElement>('status');
 const passBtn = $<HTMLButtonElement>('pass');
 const undoBtn = $<HTMLButtonElement>('undo');
+const replayBtn = $<HTMLButtonElement>('replay');
 const radio = (name: string, value: string) =>
   document.querySelector<HTMLInputElement>(`input[name="${name}"][value="${value}"]`)!;
 const radioValue = (name: string) => document.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)!.value;
@@ -130,6 +131,11 @@ const AI_STEP_DELAY_MS: Record<Speed, readonly [number, number]> = {
   normal: [1200, 1700],
   slow: [2200, 3000],
 };
+/** Pause before each step of a replayed turn. */
+const REPLAY_STEP_MS = 700;
+/** The position shown, and the cells highlighted, while the last turn is replayed step by step. */
+let replayShown: { state: GameState; cells: Set<number> } | null = null;
+let replayId = 0;
 const aiStepDelay = () => {
   const [min, max] = AI_STEP_DELAY_MS[settings.speed];
   return min + Math.random() * (max - min);
@@ -154,11 +160,11 @@ function render(motion: Motion = {}): void {
   const state = current();
   const turns = legalTurns(state);
   const over = result(state) !== 'ongoing';
-  const humanToMove = !over && !thinking && isHumanTurn(state);
+  const humanToMove = !over && !thinking && !replayShown && isHumanTurn(state);
   const base = humanToMove ? effectiveBase(turns, sel) : undefined;
 
-  const hl: Highlights = { clickable: new Set(), selected: null, targets: new Set(), lastMove: lastMoveCells() };
-  let shown = aiBaseShown ? play(state, { base: aiBaseShown, top: null }) : state;
+  const hl: Highlights = { clickable: new Set(), selected: null, targets: new Set(), lastMove: replayShown?.cells ?? lastMoveCells() };
+  let shown = replayShown?.state ?? (aiBaseShown ? play(state, { base: aiBaseShown, top: null }) : state);
   if (humanToMove && !isPassOnly(turns)) {
     if (base === undefined) {
       for (const from of baseOptions(turns).keys()) hl.clickable.add(from);
@@ -181,11 +187,14 @@ function render(motion: Motion = {}): void {
   statusEl.dataset.side = over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
   passBtn.hidden = !(humanToMove && isPassOnly(turns));
   undoBtn.disabled = history.length === 1;
+  const last = log[log.length - 1];
+  replayBtn.disabled = !last || (!last.base && !last.top) || thinking || replayShown !== null;
   saveGame();
   renderMoves();
 }
 
 function statusText(state: GameState, turns: Turn[], base: ReturnType<typeof effectiveBase>): string {
+  if (replayShown) return 'Replaying the last move…';
   const r = result(state);
   if (r === 'draw') return 'Draw: neither player can move.';
   if (r !== 'ongoing') {
@@ -228,7 +237,7 @@ function commit(turn: Turn, motion: Motion = {}): void {
 
 function onCell(id: number): void {
   const state = current();
-  if (result(state) !== 'ongoing' || thinking || !isHumanTurn(state)) return;
+  if (result(state) !== 'ongoing' || thinking || replayShown || !isHumanTurn(state)) return;
   const turns = legalTurns(state);
   if (isPassOnly(turns)) return;
 
@@ -311,6 +320,39 @@ function cancelAi(): void {
   aiBaseShown = null;
 }
 
+/** Shows the last turn again from the position before it, base step then top step. */
+function replayLastTurn(): void {
+  const turn = log[log.length - 1];
+  if (!turn || thinking || replayShown) return;
+  const id = ++replayId;
+  const before = history[history.length - 2]!;
+  const step = (fn: () => void) =>
+    setTimeout(() => {
+      if (id === replayId) fn();
+    }, REPLAY_STEP_MS);
+  const finish = (motion: Motion) => {
+    replayShown = null;
+    render(motion);
+  };
+  sel = EMPTY_SELECTION;
+  replayShown = { state: before, cells: new Set() };
+  render();
+  step(() => {
+    if (turn.base && turn.top) {
+      replayShown = { state: play(before, { base: turn.base, top: null }), cells: new Set([turn.base.from, turn.base.to]) };
+      render({ base: turn.base });
+      step(() => finish({ top: turn.top }));
+    } else {
+      finish({ base: turn.base, top: turn.top });
+    }
+  });
+}
+
+function cancelReplay(): void {
+  replayId++;
+  replayShown = null;
+}
+
 function showMatch(): void {
   // Use the dialog's own wording for the difficulty.
   const level = radio('level', game.level).parentElement!.textContent;
@@ -319,6 +361,7 @@ function showMatch(): void {
 
 function newGame(): void {
   cancelAi();
+  cancelReplay();
   game = { ...settings };
   history = [startState()];
   log = [];
@@ -330,6 +373,7 @@ function newGame(): void {
 
 function undo(): void {
   cancelAi();
+  cancelReplay();
   if (history.length === 1) return;
   history.pop();
   log.pop();
@@ -389,6 +433,7 @@ $('start').addEventListener('click', () => {
   newGame();
 });
 undoBtn.addEventListener('click', undo);
+replayBtn.addEventListener('click', replayLastTurn);
 passBtn.addEventListener('click', () => commit(PASS));
 
 if (loadGame()) {
