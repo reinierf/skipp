@@ -63,13 +63,16 @@ header {
   box-shadow: 1px 1px 8px -3px #000;
 }
 
+/* The logo's own orange band is 7/550.8 of its width deep; shift it up so that
+   band ends exactly where the bar's orange meets the white strip below it. */
 h1 {
-  margin: -12px 0 0;
+  --logo-width: min(300px, 70vw);
+  margin: calc(-10px - var(--logo-width) * 7 / 550.8) 0 0;
   line-height: 0;
 }
 
 h1 img {
-  width: min(300px, 70vw);
+  width: var(--logo-width);
   height: auto;
 }
 
