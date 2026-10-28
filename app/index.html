@@ -5,62 +5,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Skipp</title>
     <meta name="description" content="Play the board game Skipp against the computer or a friend." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Oxygen:wght@400;700&family=PT+Sans:wght@700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <header>
-      <h1>Skipp</h1>
+      <div class="headerline"></div>
+      <h1>
+        <a href="https://www.skipp.game/" target="_blank" rel="noopener">
+          <img src="./skipp-logo.svg" alt="Skipp" width="551" height="127" />
+        </a>
+      </h1>
     </header>
     <main class="layout">
       <section class="play">
         <svg id="board" role="img" aria-label="Skipp board"></svg>
         <p id="status" aria-live="polite"></p>
-        <div class="turn-actions">
-          <button id="back" type="button" hidden>Take back base move</button>
-          <button id="pass" type="button" hidden>Pass</button>
+        <div class="toolbar">
+          <button id="pass" class="primary" type="button" hidden>Pass</button>
+          <button class="primary" type="button" popovertarget="new-game">New game</button>
+          <button id="undo" class="icon" type="button" aria-label="Undo" title="Undo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
+          </button>
+          <button class="icon" type="button" popovertarget="rules" aria-label="How to play" title="How to play">?</button>
         </div>
       </section>
-      <aside class="panel">
-        <label>
-          Mode
-          <select id="mode">
-            <option value="ai">Against the computer</option>
-            <option value="pvp">Two players</option>
-          </select>
-        </label>
-        <label id="side-row">
-          You play
-          <select id="side">
-            <option value="0">Orange (moves first)</option>
-            <option value="1">Blue</option>
-          </select>
-        </label>
-        <label id="level-row">
-          Difficulty
-          <select id="level">
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-            <option value="expert">Expert</option>
-          </select>
-        </label>
-        <div class="buttons">
-          <button id="new" type="button">New game</button>
-          <button id="undo" type="button">Undo</button>
-        </div>
-        <details>
-          <summary>How to play</summary>
-          <p>Get one of your <strong>tops</strong> onto the dark grey row on the far side to win.</p>
-          <p>Each turn has two steps:</p>
-          <ol>
-            <li><strong>Move a base</strong>: one of your bases without a top moves one cell straight forward, into an empty cell or swapping with an empty opponent base. This step is mandatory when possible.</li>
-            <li><strong>Move a top</strong> diagonally forward, only over bases. <em>Sprint</em> any distance over a straight run of empty bases, or <em>jump</em> an adjacent opponent top onto the empty base behind it, removing that top.</li>
-          </ol>
-          <p>If neither player can move, the game is a draw. <a href="https://www.skipp.game/skipp-game-rules.html" target="_blank" rel="noopener">Full rules</a></p>
-        </details>
+      <aside class="moves-panel">
         <h2>Moves</h2>
+        <p id="match"></p>
         <ol id="moves"></ol>
       </aside>
     </main>
+    <div id="new-game" class="card" popover>
+      <h2>New game</h2>
+      <label>
+        Mode
+        <select id="mode">
+          <option value="ai">Against the computer</option>
+          <option value="pvp">Two players</option>
+        </select>
+      </label>
+      <label id="side-row">
+        You play
+        <select id="side">
+          <option value="0">Orange (moves first)</option>
+          <option value="1">Blue</option>
+        </select>
+      </label>
+      <label id="level-row">
+        Difficulty
+        <select id="level">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+          <option value="expert">Expert</option>
+        </select>
+      </label>
+      <div class="card-actions">
+        <button type="button" popovertarget="new-game" popovertargetaction="hide">Cancel</button>
+        <button id="start" class="primary" type="button">Start</button>
+      </div>
+    </div>
+    <div id="rules" class="card" popover>
+      <h2>How to play</h2>
+      <p>Get one of your <strong>tops</strong> onto the dark grey row on the far side to win.</p>
+      <p>Each turn has two steps:</p>
+      <ol>
+        <li><strong>Move a base</strong>: one of your bases without a top moves one cell straight forward, into an empty cell or swapping with an empty opponent base. This step is mandatory when possible.</li>
+        <li><strong>Move a top</strong> diagonally forward, only over bases. <em>Sprint</em> any distance over a straight run of empty bases, or <em>jump</em> an adjacent opponent top onto the empty base behind it, removing that top.</li>
+      </ol>
+      <p>If neither player can move, the game is a draw. <a href="https://www.skipp.game/skipp-game-rules.html" target="_blank" rel="noopener">Full rules</a></p>
+      <button type="button" popovertarget="rules" popovertargetaction="hide">Close</button>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

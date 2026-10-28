@@ -41,12 +41,12 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const svg = document.getElementById('board') as unknown as SVGSVGElement;
 const statusEl = $<HTMLParagraphElement>('status');
 const passBtn = $<HTMLButtonElement>('pass');
-const backBtn = $<HTMLButtonElement>('back');
 const undoBtn = $<HTMLButtonElement>('undo');
 const modeSel = $<HTMLSelectElement>('mode');
 const sideSel = $<HTMLSelectElement>('side');
 const levelSel = $<HTMLSelectElement>('level');
 const movesEl = $<HTMLOListElement>('moves');
+const matchEl = $<HTMLParagraphElement>('match');
 
 const SETTINGS_KEY = 'skipp.settings';
 function loadSettings(): Settings {
@@ -129,7 +129,6 @@ function render(motion: Motion = {}): void {
   statusEl.textContent = statusText(state, turns, base);
   statusEl.dataset.side = over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
   passBtn.hidden = !(humanToMove && isPassOnly(turns));
-  backBtn.hidden = !(humanToMove && sel.base);
   undoBtn.disabled = history.length === 1;
   renderMoves();
 }
@@ -261,6 +260,9 @@ function cancelAi(): void {
 function newGame(): void {
   cancelAi();
   game = { ...settings };
+  // Use the dialog's own wording for the difficulty.
+  const level = levelSel.querySelector(`option[value="${game.level}"]`)?.textContent;
+  matchEl.textContent = game.mode === 'ai' ? `Against the computer · ${level}` : 'Two players';
   history = [startState()];
   log = [];
   sel = EMPTY_SELECTION;
@@ -284,37 +286,33 @@ function undo(): void {
   maybeAiMove();
 }
 
-function syncControls(): void {
+// The new-game dialog edits a copy of the settings; they only apply on Start.
+const newGameDialog = $<HTMLDivElement>('new-game');
+
+function showAiRows(): void {
+  $('side-row').hidden = modeSel.value !== 'ai';
+  $('level-row').hidden = modeSel.value !== 'ai';
+}
+
+newGameDialog.addEventListener('beforetoggle', (e) => {
+  if ((e as ToggleEvent).newState !== 'open') return;
   modeSel.value = settings.mode;
   sideSel.value = String(settings.human);
   levelSel.value = settings.level;
-  $('side-row').hidden = settings.mode !== 'ai';
-  $('level-row').hidden = settings.mode !== 'ai';
-}
-
-modeSel.addEventListener('change', () => {
-  settings = { ...settings, mode: modeSel.value as Mode };
+  showAiRows();
+});
+modeSel.addEventListener('change', showAiRows);
+$('start').addEventListener('click', () => {
+  settings = {
+    mode: modeSel.value as Mode,
+    human: Number(sideSel.value) as Player,
+    level: levelSel.value as Level,
+  };
   saveSettings();
-  syncControls();
+  newGameDialog.hidePopover();
   newGame();
 });
-sideSel.addEventListener('change', () => {
-  settings = { ...settings, human: Number(sideSel.value) as Player };
-  saveSettings();
-  newGame();
-});
-levelSel.addEventListener('change', () => {
-  settings = { ...settings, level: levelSel.value as Level };
-  game.level = settings.level;
-  saveSettings();
-});
-$('new').addEventListener('click', newGame);
 undoBtn.addEventListener('click', undo);
 passBtn.addEventListener('click', () => commit(PASS));
-backBtn.addEventListener('click', () => {
-  sel = EMPTY_SELECTION;
-  render();
-});
 
-syncControls();
 newGame();
