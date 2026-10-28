@@ -20,6 +20,8 @@ const TOP_MS_MIN = 380;
 const CAPTURE_FADE_MS = 450;
 /** One full turn of the goal cell the winning top reached. */
 const WIN_SPIN_MS = 1000;
+/** How large the goal cell and its pieces grow halfway through the turn. */
+const WIN_GROW = 1.2;
 
 export interface Highlights {
   /** Cells that can be clicked as the next step. */
@@ -102,6 +104,7 @@ export function renderBoard(
   // The goal cell the winner's top reached.
   const win = state.winner === NONE ? -1 : CELLS.findIndex((c) => IS_GOAL[state.winner]![c.id] && state.top[c.id] === state.winner);
   let winHex: SVGPolygonElement | undefined;
+  let winPieces: SVGGElement | undefined;
 
   for (const cell of CELLS) {
     const [x, y] = centre(cell.id, flipped);
@@ -117,6 +120,7 @@ export function renderBoard(
     hexGroup.addEventListener('click', () => onCell(cell.id));
 
     const pieces = el('g', { 'data-cell': cell.name }, pieceLayer);
+    if (cell.id === win) winPieces = pieces;
     // Selection rings sit just outside the base so they read against both piece colours.
     if (hl.selected === cell.id) el('circle', { cx: x, cy: y, r: R * 0.76, class: 'ring selected' }, pieces);
     else if (hl.clickable.has(cell.id)) el('circle', { cx: x, cy: y, r: R * 0.76, class: 'ring movable' }, pieces);
@@ -160,15 +164,26 @@ export function renderBoard(
       );
       if (moved?.parentElement) pieceLayer.appendChild(moved.parentElement);
     }
-    // The turn that just won: once the top lands, the goal cell under it turns once.
-    if (top.to === win && winHex) {
+    // The turn that just won: once the top lands, the goal cell under it turns once, it and its
+    // pieces growing and shrinking again on the way. Both are raised above their layers' other
+    // elements so they overlap their neighbours. The pieces are scaled as a group, because the
+    // top's own transform is used by the slide.
+    if (top.to === win && winHex && winPieces) {
       const [x, y] = centre(win, flipped);
+      const timing = { duration: WIN_SPIN_MS, delay: ms, easing: 'ease-in-out' };
+      winHex.parentElement?.parentElement?.appendChild(winHex.parentElement);
       winHex.style.transformOrigin = `${x}px ${y}px`;
-      winHex.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], {
-        duration: WIN_SPIN_MS,
-        delay: ms,
-        easing: 'ease-in-out',
-      });
+      winHex.animate(
+        [
+          { transform: 'rotate(0deg) scale(1)' },
+          { transform: `rotate(180deg) scale(${WIN_GROW})` },
+          { transform: 'rotate(360deg) scale(1)' },
+        ],
+        timing,
+      );
+      pieceLayer.appendChild(winPieces);
+      winPieces.style.transformOrigin = `${x}px ${y}px`;
+      winPieces.animate([{ transform: 'scale(1)' }, { transform: `scale(${WIN_GROW})` }, { transform: 'scale(1)' }], timing);
     }
   }
 }
