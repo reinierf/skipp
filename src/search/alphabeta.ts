@@ -38,6 +38,12 @@ export interface SearchOptions {
   tt?: TranspositionTable | false;
   /** Killer-move and history ordering. Default true. */
   heuristics?: boolean;
+  /**
+   * Play a random turn among those scoring within `margin` of the best, favouring better
+   * ones; a margin of 0 only breaks ties at random. Never trades away a forced win.
+   * Off by default, which keeps the search deterministic.
+   */
+  random?: { margin: number; rng?: () => number };
 }
 
 export interface DepthReport {
@@ -119,6 +125,24 @@ const toTT = (score: number, ply: number) =>
   score >= MATE_BOUND ? score + ply : score <= -MATE_BOUND ? score - ply : score;
 const fromTT = (score: number, ply: number) =>
   score >= MATE_BOUND ? score - ply : score <= -MATE_BOUND ? score + ply : score;
+
+interface RootResult {
+  best: number;
+  score: number;
+  /** Turns within the margin of the best, including it; empty without a margin. */
+  near: { code: number; score: number }[];
+}
+
+/**
+ * Picks among turns within `margin` of the best, weighting each by how far inside the
+ * margin it is, so the best is likeliest and the worst allowed rarely chosen.
+ */
+function pickNear(near: RootResult['near'], best: number, margin: number, rng: () => number): RootResult['near'][number] {
+  const weight = (score: number) => margin - (best - score) + 1;
+  let r = rng() * near.reduce((sum, t) => sum + weight(t.score), 0);
+  for (const t of near) if ((r -= weight(t.score)) < 0) return t;
+  return near[near.length - 1]!;
+}
 
 class Searcher {
   nodes = 0;
@@ -256,24 +280,31 @@ class Searcher {
     return score > alpha && score < beta ? -this.negamax(depth, -beta, -alpha, ply) : score;
   }
 
-  /** Searches the root to `depth`; `first` is the encoded turn to try first (or -1). */
-  root(depth: number, first: number): { best: number; score: number } {
+  /**
+   * Searches the root to `depth`; `first` is the encoded turn to try first (or -1).
+   * With a `margin`, also returns every turn scoring within it of the best, with exact scores.
+   */
+  root(depth: number, first: number, margin?: number): RootResult {
     this.nodes++;
     const end = generateTurns(this.state, TURNS, 0);
     this.orderKeys(0, end, this.state.toMove, 0, first);
     let alpha = -Infinity;
     let best = -1;
+    const near: { code: number; score: number }[] = [];
     for (let n = 0; n < end; n++) {
       const c = TURNS[takeBest(0, end)]!;
       this.make(c);
-      const score = n === 0 ? -this.negamax(depth - 1, -Infinity, Infinity, 1) : this.pvs(depth - 1, alpha, Infinity, 1);
+      // Lowering the window by the margin makes scores of turns within it exact, not bounds.
+      const floor = margin === undefined ? alpha : alpha - margin - NULL_WINDOW;
+      const score = n === 0 ? -this.negamax(depth - 1, -Infinity, Infinity, 1) : this.pvs(depth - 1, floor, Infinity, 1);
       this.unmake(c);
+      if (margin !== undefined && score > floor) near.push({ code: c, score });
       if (score > alpha || best < 0) {
         alpha = score;
         best = c;
       }
     }
-    return { best, score: alpha };
+    return { best, score: alpha, near: near.filter((t) => t.score >= alpha - margin!) };
   }
 }
 
@@ -286,12 +317,15 @@ export function search(state: GameState, opts: SearchOptions): SearchResult {
   const s = new Searcher(state.clone(), opts.weights ?? DEFAULT_WEIGHTS, opts.timeMs, tt, opts.heuristics ?? true);
 
   let bestCode = -1;
+  let near: RootResult['near'] = [];
   for (let depth = 1; depth <= opts.maxDepth; depth++) {
     const iterStart = performance.now();
     const nodesBefore = s.nodes;
     try {
-      const { best, score } = s.root(depth, bestCode);
+      const root = s.root(depth, bestCode, opts.random?.margin);
+      const { best, score } = root;
       bestCode = best;
+      near = root.near;
       const turn = decodeTurn(best);
       Object.assign(result, { best: turn, score, depth });
       result.iterations.push({ depth, score, best: turn, nodes: s.nodes - nodesBefore, timeMs: performance.now() - iterStart });
@@ -300,6 +334,10 @@ export function search(state: GameState, opts: SearchOptions): SearchResult {
       break;
     }
     if (Math.abs(result.score) >= MATE_BOUND) break;
+  }
+  if (opts.random && near.length > 1 && result.score < MATE_BOUND) {
+    const t = pickNear(near, result.score, opts.random.margin, opts.random.rng ?? Math.random);
+    Object.assign(result, { best: decodeTurn(t.code), score: t.score });
   }
   result.nodes = s.nodes;
   result.timeMs = performance.now() - start;

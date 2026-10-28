@@ -272,7 +272,7 @@ function requestAiMove(): void {
   const state = current();
   const id = ++requestId;
   const started = performance.now();
-  const req: AiRequest = { id, key: toKey(state), level: game.level };
+  const req: AiRequest = { id, key: toKey(state), ply: state.ply, level: game.level };
   worker.postMessage(req);
   const onReply = (e: MessageEvent<AiResponse>) => {
     if (e.data.id !== id) return;

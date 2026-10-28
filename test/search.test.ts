@@ -97,6 +97,36 @@ describe('alpha-beta correctness', () => {
     expect(r.best).not.toBeNull();
   });
 
+  it('picks random turns within the margin', () => {
+    const s = startState();
+    const exact = new Map(legalTurns(s).map((t) => [turnToString(t), -minimax(play(s, t), 1)]));
+    const top = Math.max(...exact.values());
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 20; seed++) {
+      const r = search(s, { maxDepth: 2, random: { margin: 30, rng: mulberry32(seed) } });
+      const text = turnToString(r.best!);
+      expect(r.score).toBe(exact.get(text));
+      expect(r.score).toBeGreaterThanOrEqual(top - 30);
+      seen.add(text);
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('breaks only ties with a zero margin', () => {
+    for (const s of samplePositions(10)) {
+      const plain = search(s, { maxDepth: 3 });
+      for (let seed = 1; seed <= 3; seed++) {
+        expect(search(s, { maxDepth: 3, random: { margin: 0, rng: mulberry32(seed) } }).score).toBe(plain.score);
+      }
+    }
+  });
+
+  it('keeps a forced win under randomness', () => {
+    const s = stateFromCells({ c5: 'O', d6: 'b', e6: 'b', g2: 'o' });
+    const r = search(s, { maxDepth: 3, random: { margin: 1000, rng: mulberry32(1) } });
+    expect(r.score).toBe(WIN - 1);
+  });
+
   it('works for Blue to move', () => {
     const s = stateFromCells({ c2: 'B', b2: 'o', a1: 'o', g5: 'b' }, BLUE);
     expect(best(s, 1).text).toBe('g5-g4 c2-a1');
