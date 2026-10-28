@@ -26,6 +26,23 @@ export interface Weights {
   topMobility: number;
   /** Per legal base move. */
   baseMobility: number;
+  // Strategy terms, off unless set. They test strategy principles in tournaments
+  // (data/tournament-strategy*.md) and are not part of `evaluateTerms`.
+  /** Per top, times its column's closeness to the centre (0 on the edge, 3 in column d). */
+  centre?: number;
+  /** Per top still on its own back row, guarding a goal cell of the opponent. */
+  defender?: number;
+  /** Subtracted per cell of a player's own back row holding an empty base: a landing spot for the opponent. */
+  exposedGoal?: number;
+  /** Per top with no enemy top further back, so no enemy top can ever capture it. */
+  passed?: number;
+  /** Once, when a player has two or more top moves landing on a goal cell (a double threat). */
+  fork?: number;
+}
+
+/** True if `w` sets any strategy term. */
+export function hasStrategyTerms(w: Weights): boolean {
+  return !!(w.centre || w.defender || w.exposedGoal || w.passed || w.fork);
 }
 
 export const DEFAULT_WEIGHTS: Weights = {
@@ -100,7 +117,50 @@ export function evaluate(state: GameState, w: Weights = DEFAULT_WEIGHTS): number
     (moves1 >> 8) * (w.threat + (toMoveIsOrange ? 0 : w.threatToMove)) +
     (moves1 & 0xff) * w.topMobility +
     bases1 * w.baseMobility;
-  return toMoveIsOrange ? orange - blue : blue - orange;
+  const score = toMoveIsOrange ? orange - blue : blue - orange;
+  return w === DEFAULT_WEIGHTS || !hasStrategyTerms(w) ? score : score + strategyScore(state, w);
+}
+
+/** CENTRALITY[cell]: 3 minus the distance of the cell's column from the centre column. */
+const CENTRALITY = Int8Array.from(CELLS, (c) => 3 - Math.abs(c.col - 3));
+/** OWN_BACK_ROW[p][cell]: the cell is on player p's back row (the opponent's goal row). */
+const OWN_BACK_ROW = [IS_GOAL[BLUE]!, IS_GOAL[ORANGE]!];
+
+/** The strategy terms of `w`, from the point of view of the side to move. A separate pass, so they cost nothing when off. */
+function strategyScore(state: GameState, w: Weights): number {
+  const base = state.base;
+  const top = state.top;
+  const s = [0, 0];
+  const goalMoves = [0, 0];
+  // Furthest-back top of each player, as progress from its own back row (13 = none).
+  const rearmost = [MAX_Y + 1, MAX_Y + 1];
+  for (let id = 0; id < NUM_CELLS; id++) {
+    const t = top[id]!;
+    if (t !== NONE) {
+      const p = t as Player;
+      s[p]! += (w.centre ?? 0) * CENTRALITY[id]! + (OWN_BACK_ROW[p]![id] ? (w.defender ?? 0) : 0);
+      if (w.fork) goalMoves[p]! += topMovesFrom(base, top, p, id) >> 8;
+      if (PROGRESS[p]![id]! < rearmost[p]!) rearmost[p] = PROGRESS[p]![id]!;
+    } else if (base[id] !== NONE && w.exposedGoal) {
+      if (OWN_BACK_ROW[ORANGE]![id]) s[ORANGE]! -= w.exposedGoal;
+      else if (OWN_BACK_ROW[BLUE]![id]) s[BLUE]! -= w.exposedGoal;
+    }
+  }
+  if (w.passed) {
+    // An enemy top can only capture a top it is still moving toward: one ahead of it in its own
+    // direction of travel. Progress runs in opposite directions, so a player-p top with progress g
+    // is passed when every enemy top has progress of at least MAX_Y - g (level with it or beyond).
+    for (let id = 0; id < NUM_CELLS; id++) {
+      const t = top[id]!;
+      if (t === NONE) continue;
+      if (rearmost[1 - t]! >= MAX_Y - PROGRESS[t]![id]!) s[t]! += w.passed;
+    }
+  }
+  if (w.fork) {
+    if (goalMoves[ORANGE]! >= 2) s[ORANGE]! += w.fork;
+    if (goalMoves[BLUE]! >= 2) s[BLUE]! += w.fork;
+  }
+  return s[state.toMove]! - s[1 - state.toMove]!;
 }
 
 /** The raw quantities `evaluate` weighs, for one player. */

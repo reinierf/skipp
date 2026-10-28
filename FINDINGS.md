@@ -114,6 +114,29 @@ full v1 evaluation:
 Doubling advancement or mobility made no measurable difference. A single re-weighted term still
 gained 150 Elo, so systematic tuning is likely to find more.
 
+### Do common strategy principles hold?
+
+Each principle became an optional evaluation term (off by default, see `Weights` in
+[src/search/evaluate.ts](src/search/evaluate.ts)), and its preset played the current default
+([data/tournament-strategy-d4.md](data/tournament-strategy-d4.md) at depth 4 and
+[data/tournament-strategy-d6.md](data/tournament-strategy-d6.md) at depth 6, both gauntlets;
+120 games per pairing, so differences under about 60 Elo are noise):
+
+| Principle | Preset | Depth 4 | Depth 6 |
+|---|---|---|---|
+| Prefer the centre | `centreHalf` / `centre` / `centre2x` | +6 / +47 / −89 | +17 / +17 / — |
+| Time beats material | `cheapTops` (top 70 instead of 100) | +17 | 0 |
+| Get past the enemy tops | `passed` / `passed2x` | 0 / +6 | — |
+| Aim for double threats | `fork` / `fork2x` | +6 / +6 | — |
+| Keep defenders on the back row | `defender` / `defender2x` | −50 / −101 | −101 |
+| Leave no empty base on your own back row | `exposedGoal` / `exposedGoal2x` | −161 / −366 | — |
+
+**None is worth adopting.** A light centre preference is the only one that might help, and its gain
+falls from +47 at depth 4 to noise at depth 6. Double threats and passed tops add nothing that the
+search does not already find. Both defensive back-row principles are clearly harmful: an engine that
+holds its back row loses base mobility and tempo, which matters more than guarding goal cells early.
+The defaults are unchanged.
+
 ### Other observations
 
 - **Colour:** no consistent first-move advantage. Orange won between 42% and 57% across

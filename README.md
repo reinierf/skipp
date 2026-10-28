@@ -62,7 +62,10 @@ npm run bench -- --positions data/branching-ab4/positions.json --out data/branch
 npm run compare -- --depth 6                                       # search configurations side by side
 npm run profile                                                    # fixed search workload; node count must not change for pure speed-ups
 npm run tournament -- --agents random,greedy,ab2,ab4 --openings 20 # data/tournament.md
+npm run tournament -- --gauntlet ab6 --agents ab6:centre,ab6:defender --openings 60 --out data/tournament-strategy-d6.md
 ```
+
+`--gauntlet SPEC` plays every agent only against SPEC instead of a full round robin.
 
 Agent specs: `random`, `greedy`, `ab<depth>`, `t<ms>`. Add `:<preset>` to pick evaluation
 weights from `src/search/presets.ts`, e.g. `ab4:v1`.

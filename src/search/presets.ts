@@ -22,4 +22,18 @@ export const WEIGHT_PRESETS: Record<string, Weights> = {
   base3x: { ...V1, baseMobility: V1.baseMobility * 3 },
   base6x: { ...V1, baseMobility: V1.baseMobility * 6 },
   base12x: { ...V1, baseMobility: V1.baseMobility * 12 },
+  // Strategy principles, each relative to the current default (data/tournament-strategy*.md).
+  centreHalf: { ...DEFAULT_WEIGHTS, centre: 2 },
+  centre: { ...DEFAULT_WEIGHTS, centre: 4 },
+  centre2x: { ...DEFAULT_WEIGHTS, centre: 8 },
+  defender: { ...DEFAULT_WEIGHTS, defender: 15 },
+  defender2x: { ...DEFAULT_WEIGHTS, defender: 30 },
+  exposedGoal: { ...DEFAULT_WEIGHTS, exposedGoal: 15 },
+  exposedGoal2x: { ...DEFAULT_WEIGHTS, exposedGoal: 30 },
+  passed: { ...DEFAULT_WEIGHTS, passed: 20 },
+  passed2x: { ...DEFAULT_WEIGHTS, passed: 40 },
+  fork: { ...DEFAULT_WEIGHTS, fork: 80 },
+  fork2x: { ...DEFAULT_WEIGHTS, fork: 160 },
+  /** "Time beats material": tops worth less relative to advancement and threats. */
+  cheapTops: { ...DEFAULT_WEIGHTS, top: 70 },
 };
