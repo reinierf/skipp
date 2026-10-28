@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Skipp</title>
+    <script>
+      // Apply the saved theme before first paint; main.ts keeps it in sync afterwards.
+      try {
+        const theme = JSON.parse(localStorage.getItem('skipp.settings') ?? '{}').theme;
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
     <meta name="description" content="Play the board game Skipp against the computer or a friend." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -28,6 +35,9 @@
           <button id="undo" class="icon" type="button" aria-label="Undo" title="Undo">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
           </button>
+          <button class="icon" type="button" popovertarget="settings" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+          </button>
           <button class="icon" type="button" popovertarget="rules" aria-label="How to play" title="How to play">?</button>
         </div>
       </section>
@@ -39,33 +49,54 @@
     </main>
     <div id="new-game" class="card" popover>
       <h2>New game</h2>
-      <label>
-        Mode
-        <select id="mode">
-          <option value="ai">Against the computer</option>
-          <option value="pvp">Two players</option>
-        </select>
-      </label>
-      <label id="side-row">
-        You play
-        <select id="side">
-          <option value="0">Orange (moves first)</option>
-          <option value="1">Blue</option>
-        </select>
-      </label>
-      <label id="level-row">
-        Difficulty
-        <select id="level">
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-          <option value="expert">Expert</option>
-        </select>
-      </label>
+      <fieldset id="mode">
+        <legend>Mode</legend>
+        <div class="pills">
+          <label><input type="radio" name="mode" value="ai" />Against the computer</label>
+          <label><input type="radio" name="mode" value="pvp" />Two players</label>
+        </div>
+      </fieldset>
+      <fieldset id="side-row">
+        <legend>You play</legend>
+        <div class="pills">
+          <label><input type="radio" name="side" value="0" />Orange (moves first)</label>
+          <label><input type="radio" name="side" value="1" />Blue</label>
+        </div>
+      </fieldset>
+      <fieldset id="level-row">
+        <legend>Difficulty</legend>
+        <div class="pills">
+          <label><input type="radio" name="level" value="easy" />Easy</label>
+          <label><input type="radio" name="level" value="medium" />Medium</label>
+          <label><input type="radio" name="level" value="hard" />Hard</label>
+          <label><input type="radio" name="level" value="expert" />Expert</label>
+        </div>
+      </fieldset>
       <div class="card-actions">
         <button type="button" popovertarget="new-game" popovertargetaction="hide">Cancel</button>
         <button id="start" class="primary" type="button">Start</button>
       </div>
+    </div>
+    <div id="settings" class="card" popover>
+      <h2>Settings</h2>
+      <fieldset id="speed">
+        <legend>Computer speed</legend>
+        <div class="pills">
+          <label><input type="radio" name="speed" value="instant" />Instant</label>
+          <label><input type="radio" name="speed" value="fast" />Fast</label>
+          <label><input type="radio" name="speed" value="normal" />Normal</label>
+          <label><input type="radio" name="speed" value="slow" />Slow</label>
+        </div>
+      </fieldset>
+      <fieldset id="theme">
+        <legend>Theme</legend>
+        <div class="pills">
+          <label><input type="radio" name="theme" value="system" />System</label>
+          <label><input type="radio" name="theme" value="light" />Light</label>
+          <label><input type="radio" name="theme" value="dark" />Dark</label>
+        </div>
+      </fieldset>
+      <button type="button" popovertarget="settings" popovertargetaction="hide">Done</button>
     </div>
     <div id="rules" class="card" popover>
       <h2>How to play</h2>

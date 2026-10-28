@@ -40,6 +40,23 @@
   }
 }
 
+/* Dark chosen explicitly in settings, whatever the system preference. */
+:root[data-theme='dark'] {
+  --bg: #064254;
+  --bg-end: #212b2e;
+  --surface: #1d3239;
+  --text: #e8f1f4;
+  --muted: #9fb4bc;
+  --heading: #cce1e7;
+  --border: #2f4a53;
+  --hex: #2a3f46;
+  --hex-stroke: #44606a;
+  --goal: #10191c;
+  --last: #c99a1a;
+  --shadow: 1px 1px 10px -3px #000;
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -224,20 +241,58 @@ h2 {
   font-weight: 700;
 }
 
-.card label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
+fieldset {
+  margin: 0 0 12px;
+  padding: 0;
+  border: none;
+}
+
+legend {
+  padding: 0;
+  margin-bottom: 4px;
   font-size: 13px;
   color: var(--muted);
 }
 
-.card label[hidden] {
-  display: none;
+/* Radio groups drawn as a row of pills; the radio itself is hidden but still focusable. */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-select,
+.pills label {
+  margin: 0;
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pills label:hover {
+  border-color: var(--sky);
+}
+
+.pills label:has(:checked) {
+  color: #fff;
+  background: var(--sky);
+  border-color: var(--sky);
+}
+
+.pills label:has(:focus-visible) {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.pills input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
 button {
   font: inherit;
   color: var(--text);

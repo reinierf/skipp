@@ -16,7 +16,7 @@ import {
   type Turn,
 } from '../../src/engine';
 import type { AiRequest, AiResponse, Level } from './ai.worker';
-import { playerName, renderBoard, type Highlights, type Motion } from './board';
+import { BASE_MS, playerName, renderBoard, type Highlights, type Motion } from './board';
 import {
   EMPTY_SELECTION,
   autoComplete,
@@ -30,11 +30,15 @@ import {
 import './style.css';
 
 type Mode = 'ai' | 'pvp';
+type Speed = 'instant' | 'fast' | 'normal' | 'slow';
+type Theme = 'system' | 'light' | 'dark';
 
 interface Settings {
   mode: Mode;
   human: Player;
   level: Level;
+  speed: Speed;
+  theme: Theme;
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -42,15 +46,16 @@ const svg = document.getElementById('board') as unknown as SVGSVGElement;
 const statusEl = $<HTMLParagraphElement>('status');
 const passBtn = $<HTMLButtonElement>('pass');
 const undoBtn = $<HTMLButtonElement>('undo');
-const modeSel = $<HTMLSelectElement>('mode');
-const sideSel = $<HTMLSelectElement>('side');
-const levelSel = $<HTMLSelectElement>('level');
+const radio = (name: string, value: string) =>
+  document.querySelector<HTMLInputElement>(`input[name="${name}"][value="${value}"]`)!;
+const radioValue = (name: string) => document.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)!.value;
+const setRadio = (name: string, value: string) => (radio(name, value).checked = true);
 const movesEl = $<HTMLOListElement>('moves');
 const matchEl = $<HTMLParagraphElement>('match');
 
 const SETTINGS_KEY = 'skipp.settings';
 function loadSettings(): Settings {
-  const fallback: Settings = { mode: 'ai', human: ORANGE, level: 'medium' };
+  const fallback: Settings = { mode: 'ai', human: ORANGE, level: 'medium', speed: 'normal', theme: 'system' };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {
@@ -78,11 +83,19 @@ let thinking = false;
 /** The computer's base step while it is shown on its own, before the top step follows. */
 let aiBaseShown: BaseMove | null = null;
 /**
- * Pause before each visible step of the computer's turn, drawn at random from this range so the
- * computer feels less mechanical. Search time counts toward the first pause.
+ * Pause before each visible step of the computer's turn, per speed setting, drawn at random from
+ * the range so the computer feels less mechanical. Search time counts toward the first pause.
  */
-const AI_STEP_DELAY_MS = [1200, 1700] as const;
-const aiStepDelay = () => AI_STEP_DELAY_MS[0] + Math.random() * (AI_STEP_DELAY_MS[1] - AI_STEP_DELAY_MS[0]);
+const AI_STEP_DELAY_MS: Record<Speed, readonly [number, number]> = {
+  instant: [0, 0],
+  fast: [500, 800],
+  normal: [1200, 1700],
+  slow: [2200, 3000],
+};
+const aiStepDelay = () => {
+  const [min, max] = AI_STEP_DELAY_MS[settings.speed];
+  return min + Math.random() * (max - min);
+};
 
 const current = () => history[history.length - 1]!;
 const isHumanTurn = (s: GameState) => game.mode === 'pvp' || s.toMove === game.human;
@@ -229,8 +242,9 @@ function requestAiMove(): void {
     const finish = () => {
       if (id !== requestId) return;
       thinking = false;
+      const baseShown = aiBaseShown !== null;
       aiBaseShown = null;
-      if (turn) commit(turn, turn.base && turn.top ? { top: turn.top } : { base: turn.base, top: turn.top });
+      if (turn) commit(turn, baseShown ? { top: turn.top } : { base: turn.base, top: turn.top });
       else render();
     };
     // Show the base step on its own first, then the top step, each after a pause.
@@ -240,7 +254,8 @@ function requestAiMove(): void {
         if (turn?.base && turn.top) {
           aiBaseShown = turn.base;
           render({ base: turn.base });
-          setTimeout(finish, aiStepDelay());
+          // Let the base finish sliding before the top moves, even at instant speed.
+          setTimeout(finish, Math.max(BASE_MS, aiStepDelay()));
         } else {
           finish();
         }
@@ -261,7 +276,7 @@ function newGame(): void {
   cancelAi();
   game = { ...settings };
   // Use the dialog's own wording for the difficulty.
-  const level = levelSel.querySelector(`option[value="${game.level}"]`)?.textContent;
+  const level = radio('level', game.level).parentElement!.textContent;
   matchEl.textContent = game.mode === 'ai' ? `Against the computer · ${level}` : 'Two players';
   history = [startState()];
   log = [];
@@ -290,23 +305,41 @@ function undo(): void {
 const newGameDialog = $<HTMLDivElement>('new-game');
 
 function showAiRows(): void {
-  $('side-row').hidden = modeSel.value !== 'ai';
-  $('level-row').hidden = modeSel.value !== 'ai';
+  $('side-row').hidden = radioValue('mode') !== 'ai';
+  $('level-row').hidden = radioValue('mode') !== 'ai';
 }
 
 newGameDialog.addEventListener('beforetoggle', (e) => {
   if ((e as ToggleEvent).newState !== 'open') return;
-  modeSel.value = settings.mode;
-  sideSel.value = String(settings.human);
-  levelSel.value = settings.level;
+  setRadio('mode', settings.mode);
+  setRadio('side', String(settings.human));
+  setRadio('level', settings.level);
   showAiRows();
 });
-modeSel.addEventListener('change', showAiRows);
+$('mode').addEventListener('change', showAiRows);
+setRadio('speed', settings.speed);
+$('speed').addEventListener('change', (e) => {
+  settings = { ...settings, speed: (e.target as HTMLInputElement).value as Speed };
+  saveSettings();
+});
+
+function applyTheme(): void {
+  if (settings.theme === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = settings.theme;
+}
+
+setRadio('theme', settings.theme);
+$('theme').addEventListener('change', (e) => {
+  settings = { ...settings, theme: (e.target as HTMLInputElement).value as Theme };
+  saveSettings();
+  applyTheme();
+});
 $('start').addEventListener('click', () => {
   settings = {
-    mode: modeSel.value as Mode,
-    human: Number(sideSel.value) as Player,
-    level: levelSel.value as Level,
+    ...settings,
+    mode: radioValue('mode') as Mode,
+    human: Number(radioValue('side')) as Player,
+    level: radioValue('level') as Level,
   };
   saveSettings();
   newGameDialog.hidePopover();

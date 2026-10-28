@@ -11,7 +11,7 @@ const PAD = 10;
 export const VIEW_W = PAD * 2 + R * 2 + 6 * 1.5 * R;
 export const VIEW_H = PAD * 2 + H * 2 + MAX_Y * H;
 
-const BASE_MS = 380;
+export const BASE_MS = 380;
 const TOP_MS_PER_CELL = 160;
 const TOP_MS_MIN = 380;
 const CAPTURE_FADE_MS = 450;
