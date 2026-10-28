@@ -164,6 +164,10 @@ function lastMoveCells(): Set<number> {
   return cells;
 }
 
+/** How long after the winning turn is played the result appears in the status line. */
+const WIN_STATUS_DELAY_MS = 1800;
+let statusTimer: ReturnType<typeof setTimeout> | undefined;
+
 function render(motion: Motion = {}): void {
   const state = current();
   const turns = legalTurns(state);
@@ -199,11 +203,19 @@ function render(motion: Motion = {}): void {
   // Hints and the move list use the coordinates, so they are always shown with a hint.
   const labels = settings.coords === 'on' || (humanToMove && hint !== null);
   renderBoard(svg, shown, hl, { flipped, labels }, onCell, motion);
-  statusEl.textContent = statusText(state, turns, base);
   const r = result(state);
   const won = !replayShown && (r === 'orange' || r === 'blue');
-  statusEl.dataset.side = won ? r : over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
-  statusEl.classList.toggle('won', won);
+  const text = statusText(state, turns, base);
+  const side = won ? r : over ? '' : state.toMove === ORANGE ? 'orange' : 'blue';
+  const showStatus = () => {
+    statusEl.textContent = text;
+    statusEl.dataset.side = side;
+    statusEl.classList.toggle('won', won);
+  };
+  clearTimeout(statusTimer);
+  // The turn that just won is animated on the board first; the result follows.
+  if (won && motion.top) statusTimer = setTimeout(showStatus, WIN_STATUS_DELAY_MS);
+  else showStatus();
   passBtn.hidden = !(humanToMove && isPassOnly(turns));
   undoBtn.disabled = history.length === 1;
   const last = log[log.length - 1];
